@@ -107,12 +107,9 @@
   </div>
 
   <script>
-    // --- Configuración de Solana ---
     const AFK_TOKEN_MINT_ADDRESS = '1THEbQ2K1ELPQcsgfWhbSyApMeiXhofRexvmTVFvDfX';
     const TREASURY_WALLET_ADDRESS = 'F3zY8TZ9jiCTneBkPQr1DMbyT9vgwdBUXCoZB9h4GP5G';
-    // <<< CAMBIO: URL del RPC de Solaxy >>>
     const connection = new solanaWeb3.Connection('https://mainnet.rpc.solaxy.io');
-    // --- Fin de la Configuración ---
 
     const BOOSTERS = {
       basico: { cost: 10, rewards: { jackpot: 100, high: 20, mid: 5, low: 1 }, probs: { jackpot: 0.01, high: 0.05, mid: 0.2 } },
@@ -160,7 +157,7 @@
       if (!state.pubkey) { log('❌ Por favor, conecta tu wallet primero.'); return; }
       log(`Iniciando transacción para el Booster ${boosterType}...`);
       try {
-        const provider = window.solana;
+        const provider = window.solaxy || window.solana;
         const mintPublicKey = new solanaWeb3.PublicKey(AFK_TOKEN_MINT_ADDRESS);
         const treasuryPublicKey = new solanaWeb3.PublicKey(TREASURY_WALLET_ADDRESS);
         const userPublicKey = new solanaWeb3.PublicKey(state.pubkey);
@@ -248,8 +245,11 @@
 
     async function connectWallet(){
       try{
-        const provider = window.solana;
-        if(!provider?.isPhantom){ log('Wallet Phantom no detectada.'); return; }
+        const provider = window.solaxy || window.solana;
+        if(!provider){ 
+          log('Wallet no detectada. Asegúrate de tener Solaxy o Phantom instalada.'); 
+          return; 
+        }
         await provider.connect({ onlyIfTrusted: false });
         const key = provider.publicKey.toString();
         state.pubkey = key;
