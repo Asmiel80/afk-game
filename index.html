@@ -47,7 +47,7 @@
       <div class="row" style="justify-content:space-between;align-items:center">
         <h1>AFK Mode <span class="neon">— Activa y Gana 🚀</span></h1>
         <div class="row">
-          <button id="connect" class="btn btn-outline" disabled>Conectando Wallet...</button>
+          <button id="connect" class="btn btn-outline" disabled>Buscando Wallet...</button>
           <span id="pubkey" class="pill">Wallet: desconectada</span>
           <span id="afk-balance" class="pill">$AFK: --</span>
         </div>
@@ -243,12 +243,16 @@
     }
 
     async function connectWallet(){
+      const connectButton = $('#connect');
       if(!state.provider) {
         log('Wallet no disponible.');
         return;
       }
+      // <<< CAMBIO: Deshabilitamos el botón para evitar dobles clics >>>
+      connectButton.disabled = true;
+      connectButton.textContent = 'Conectando...';
       try{
-        await state.provider.connect({ onlyIfTrusted: false });
+        await state.provider.connect();
         const key = state.provider.publicKey.toString();
         state.pubkey = key;
         $('#pubkey').textContent = `Wallet: ${key.slice(0,6)}…${key.slice(-6)}`;
@@ -257,6 +261,10 @@
       }catch(err){ 
         log('Error al conectar wallet.'); 
         console.error(err);
+      } finally {
+        // <<< CAMBIO: Volvemos a habilitar el botón al terminar >>>
+        connectButton.disabled = false;
+        connectButton.textContent = 'Conectar wallet';
       }
     }
 
@@ -274,13 +282,9 @@
       } catch(err) { log('❌ No se pudo conectar con el backend.'); }
     }
 
-    // <<< CAMBIO: Lógica para esperar a que la wallet esté lista >>>
     function initializeApp() {
         const connectButton = $('#connect');
-        
-        // Intentamos encontrar el proveedor (Solaxy tiene prioridad)
         const provider = window.solaxy || window.solana;
-
         if (provider) {
             state.provider = provider;
             connectButton.disabled = false;
@@ -292,7 +296,6 @@
         }
     }
 
-    // Nos aseguramos de que la página y los scripts de la wallet hayan cargado
     window.addEventListener('load', initializeApp);
     
     $('#connect').addEventListener('click', connectWallet);
