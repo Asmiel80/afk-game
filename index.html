@@ -110,7 +110,8 @@
     // --- Configuración de Solana ---
     const AFK_TOKEN_MINT_ADDRESS = '1THEbQ2K1ELPQcsgfWhbSyApMeiXhofRexvmTVFvDfX';
     const TREASURY_WALLET_ADDRESS = 'F3zY8TZ9jiCTneBkPQr1DMbyT9vgwdBUXCoZB9h4GP5G';
-    const connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl('mainnet-beta'));
+    // <<< CAMBIO: URL del RPC de Solaxy >>>
+    const connection = new solanaWeb3.Connection('https://mainnet.rpc.solaxy.io');
     // --- Fin de la Configuración ---
 
     const BOOSTERS = {
