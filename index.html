@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -31,7 +30,7 @@
     .btn-primary{background:linear-gradient(90deg,var(--accent),#7bffb8);color:#052012;box-shadow:0 6px 20px rgba(57,255,136,.35)}
     .btn-outline{background:transparent;border:1px solid rgba(255,255,255,.18);color:#e9f1f7}
     .btn-ghost{background:transparent;color:var(--muted)}
-    .pill{display:inline-block;border:1px dashed rgba(255,255,255,.2);padding:6px 10px;border-radius:999px;color:var(--muted);font-size:.9rem}
+    .pill{display:inline-flex;align-items:center;border:1px dashed rgba(255,255,255,.2);padding:6px 10px;border-radius:999px;color:var(--muted);font-size:.9rem}
     .neon{color:var(--accent);text-shadow:0 0 6px rgba(57,255,136,.7), 0 0 18px rgba(57,255,136,.35)}
     .log{height:200px;overflow:auto;background:#0b1217;border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:12px;font-family:ui-monospace,Consolas,monospace;font-size:.9rem}
     .muted{color:var(--muted)}
@@ -49,12 +48,12 @@
         <h1>AFK Mode <span class="neon">— Activa y Gana 🚀</span></h1>
         <div class="row">
           <button id="connect" class="btn btn-outline">Conectar wallet</button>
+          <button id="disconnect" class="btn btn-outline" style="display: none;">Desconectar</button>
           <span id="pubkey" class="pill">Wallet: desconectada</span>
           <span id="afk-balance" class="pill">$AFK: --</span>
         </div>
       </div>
-      <p class="muted">Gasta <b class="neon">$AFK</b> para activar un Booster. Mantente AFK para recibir premios aleatorios en <b class="neon">Z‑Points</b>.
-      </p>
+      <p class="muted">Gasta <b class="neon">$AFK</b> para activar un Booster. Mantente AFK para recibir premios aleatorios en <b class="neon">Z‑Points</b>.</p>
 
       <div class="grid">
         <section class="card">
@@ -123,8 +122,6 @@
       totalPoints: Number(localStorage.getItem('afk_total_points')||0),
       pubkey: null, activeBooster: null
     };
-    
-    let isConnecting = false;
 
     const $ = sel => document.querySelector(sel);
     const log = (msg) => { const box = $('#log'); const t=new Date().toLocaleTimeString(); box.innerHTML = `[${t}] ${msg}<br>` + box.innerHTML; }
@@ -218,19 +215,6 @@
       render();
     }
 
-    ['mousemove','mousedown','keydown','touchstart','wheel'].forEach(evt => {
-      window.addEventListener(evt, () => { if(state.running){ stopAFK('actividad del usuario'); } });
-    });
-
-    document.querySelectorAll('.booster-card button').forEach(btn => {
-        btn.addEventListener('click', () => startAFK(btn.dataset.booster));
-    });
-    $('#stop').addEventListener('click', () => stopAFK());
-    $('#reset').addEventListener('click', () => { 
-        localStorage.setItem('afk_total_points', '0'); state.totalPoints = 0;
-        log('✅ Puntos locales reseteados.'); render(); 
-    });
-
     async function updateAfkBalance(publicKey) {
       try {
         const mintPublicKey = new solanaWeb3.PublicKey(AFK_TOKEN_MINT_ADDRESS);
@@ -245,45 +229,93 @@
         log('No se encontró balance de $AFK.');
       }
     }
-    
-    // <<< CAMBIO: Lógica de conexión simplificada >>>
-    async function connectWallet(){
-      const provider = window.solaxy || window.solana;
+
+    function handleConnection(publicKey) {
+      const key = publicKey.toString();
+      state.pubkey = key;
+      $('#pubkey').textContent = `Wallet: ${key.slice(0,6)}…${key.slice(-6)}`;
+      $('#connect').style.display = 'none';
+      $('#disconnect').style.display = 'inline-block';
+      log('Wallet conectada ✅');
+      updateAfkBalance(key);
+    }
+
+    function handleDisconnection() {
+      state.pubkey = null;
+      $('#pubkey').textContent = 'Wallet: desconectada';
+      $('#afk-balance').textContent = '$AFK: --';
+      $('#connect').style.display = 'inline-block';
+      $('#disconnect').style.display = 'none';
+      log('Wallet desconectada.');
+    }
+
+    async function connectWallet() {
+      const provider = window.solana; // Nos centramos solo en Phantom
       if (!provider) {
-        log('❌ Wallet no detectada. Asegúrate de tener Solaxy o Phantom instalada.');
+        log('❌ Wallet Phantom no detectada.');
         return;
       }
-      
-      const connectButton = $('#connect');
-      connectButton.disabled = true;
-      connectButton.textContent = 'Conectando...';
-
+      state.provider = provider;
       try {
         const resp = await provider.connect();
-        const key = resp.publicKey.toString();
-        state.provider = provider; // Guardamos el proveedor solo tras una conexión exitosa
-        state.pubkey = key;
-        
-        $('#pubkey').textContent = `Wallet: ${key.slice(0,6)}…${key.slice(-6)}`;
-        log('Wallet conectada ✅');
-        await updateAfkBalance(key);
+        handleConnection(resp.publicKey);
       } catch(err) { 
-        log('❌ Conexión rechazada o fallida.'); 
+        log('❌ Conexión rechazada por el usuario.'); 
         console.error(err);
-      } finally {
-        connectButton.disabled = false;
-        connectButton.textContent = 'Conectar wallet';
       }
     }
 
-    async function getRanking(){ /* ... */ } // (Sin cambios)
+    async function disconnectWallet() {
+      if (state.provider) {
+        try {
+          await state.provider.disconnect();
+          handleDisconnection();
+        } catch (err) {
+          log('Error al desconectar.');
+          console.error(err);
+        }
+      }
+    }
 
-    // << CAMBIO: No hacemos nada al cargar la página, esperamos la acción del usuario >>
+    async function getRanking(){
+      log('Consultando el ranking...');
+      try {
+        const res = await fetch(`${BACKEND_URL}/ranking`);
+        const data = await res.json();
+        if(data.ok && data.ranking){
+          log('🏆 Ranking Top:');
+          data.ranking.forEach((p, i) => {
+            log(`${i+1}. ${p.pubkey.slice(0,4)}...${p.pubkey.slice(-4)} — ${p.points} puntos`);
+          });
+        } else { log(`❌ Error: ${data.error}`); }
+      } catch(err) { log('❌ No se pudo conectar con el backend.'); }
+    }
+
+    window.addEventListener('load', () => {
+      const provider = window.solana;
+      if (provider) {
+        state.provider = provider;
+        provider.on('connect', (publicKey) => handleConnection(publicKey));
+        provider.on('disconnect', () => handleDisconnection());
+        
+        provider.connect({ onlyIfTrusted: true }).catch(() => {
+          // Falla silenciosamente, el usuario deberá conectar manualmente
+        });
+      }
+    });
     
     $('#connect').addEventListener('click', connectWallet);
+    $('#disconnect').addEventListener('click', disconnectWallet);
+    document.querySelectorAll('.booster-card button').forEach(btn => {
+        btn.addEventListener('click', () => startAFK(btn.dataset.booster));
+    });
+    $('#stop').addEventListener('click', () => stopAFK());
+    $('#reset').addEventListener('click', () => { 
+        localStorage.setItem('afk_total_points', '0'); state.totalPoints = 0;
+        log('✅ Puntos locales reseteados.'); render(); 
+    });
     $('#ranking').addEventListener('click', getRanking);
 
-    log('Bienvenido. Haz clic en "Conectar wallet" para empezar.');
     render();
   </script>
 </body>
