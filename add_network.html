@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <title>Añadir Red Solaxy a Phantom</title>
+    <style>
+        body { background: #111; color: #eee; font-family: system-ui, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
+        .container { border: 1px solid #444; padding: 40px; border-radius: 20px; }
+        button { font-size: 20px; padding: 15px 30px; cursor: pointer; border-radius: 12px; border: 0; background: #a040ff; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Configurar Phantom Wallet</h1>
+        <p>Haz clic en el botón para añadir la red de Solaxy a Phantom.</p>
+        <button id="addNetworkBtn">Añadir Red Solaxy</button>
+    </div>
+
+    <script>
+        async function addSolaxyNetwork() {
+            const provider = window.solana;
+            if (!provider || !provider.isPhantom) {
+                alert('Wallet Phantom no encontrada. Asegúrate de que la extensión esté instalada y activa.');
+                return;
+            }
+
+            try {
+                await provider.request({
+                    method: 'wallet_addSolanaChain',
+                    params: [
+                        {
+                            chainId: 'solaxy-mainnet', // ID interno, no es crítico
+                            rpcUrls: ['https://mainnet.rpc.solaxy.io'],
+                            chainName: 'Solaxy Mainnet',
+                            nativeCurrency: {
+                                name: 'Solaxy',
+                                symbol: 'SOLX',
+                                decimals: 9,
+                            },
+                        },
+                    ],
+                });
+                alert('¡Red Solaxy añadida con éxito! Ahora puedes seleccionarla desde el menú de redes en Phantom.');
+            } catch (error) {
+                alert('El proceso falló o fue cancelado. Revisa la consola para más detalles.');
+                console.error(error);
+            }
+        }
+        document.getElementById('addNetworkBtn').addEventListener('click', addSolaxyNetwork);
+    </script>
+</body>
+</html>
