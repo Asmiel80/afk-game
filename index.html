@@ -49,6 +49,7 @@
         <div class="row">
           <button id="connect" class="btn btn-outline">Conectar wallet</button>
           <span id="pubkey" class="pill">Wallet: desconectada</span>
+          <span id="afk-balance" class="pill">$AFK: --</span>
         </div>
       </div>
       <p class="muted">Gasta <b class="neon">$AFK</b> para activar un Booster. Mantente AFK para recibir premios aleatorios en <b class="neon">Z‑Points</b>.
@@ -119,13 +120,9 @@
     };
 
     const state = {
-      running:false,
-      afkStart: null,
-      secondsAFK: 0,
-      sessionPoints: 0,
+      running:false, afkStart: null, secondsAFK: 0, sessionPoints: 0,
       totalPoints: Number(localStorage.getItem('afk_total_points')||0),
-      pubkey: null,
-      activeBooster: null
+      pubkey: null, activeBooster: null
     };
 
     const $ = sel => document.querySelector(sel);
@@ -137,7 +134,7 @@
       $('#pointsTotal').textContent = state.totalPoints.toFixed(0);
       $('#afkTime').textContent = fmt(state.secondsAFK);
       document.querySelectorAll('.booster-card button').forEach(btn => {
-        btn.disabled = state.running; // Solo deshabilitamos si ya está corriendo
+        btn.disabled = state.running;
       });
     }
 
@@ -149,77 +146,48 @@
     function calculateRewardDrop() {
       const booster = BOOSTERS[state.activeBooster];
       const roll = Math.random();
-      if (roll < booster.probs.jackpot) {
-        return { points: booster.rewards.jackpot, msg: `🚀 ¡¡¡JACKPOT!!! +${booster.rewards.jackpot} Z-Points` };
-      } else if (roll < booster.probs.jackpot + booster.probs.high) {
-        return { points: booster.rewards.high, msg: `💎 ¡DROP ÉPICO! +${booster.rewards.high} Z-Points` };
-      } else if (roll < booster.probs.jackpot + booster.probs.high + booster.probs.mid) {
-        return { points: booster.rewards.mid, msg: `🔥 ¡Premio bueno! +${booster.rewards.mid} Z-Points` };
-      } else {
-        return Math.random() < 0.4 ? { points: 0 } : { points: booster.rewards.low, msg: `+${booster.rewards.low} Z-Points` };
-      }
+      if (roll < booster.probs.jackpot) { return { points: booster.rewards.jackpot, msg: `🚀 ¡¡¡JACKPOT!!! +${booster.rewards.jackpot} Z-Points` }; }
+      else if (roll < booster.probs.jackpot + booster.probs.high) { return { points: booster.rewards.high, msg: `💎 ¡DROP ÉPICO! +${booster.rewards.high} Z-Points` }; }
+      else if (roll < booster.probs.jackpot + booster.probs.high + booster.probs.mid) { return { points: booster.rewards.mid, msg: `🔥 ¡Premio bueno! +${booster.rewards.mid} Z-Points` }; }
+      else { return Math.random() < 0.4 ? { points: 0 } : { points: booster.rewards.low, msg: `+${booster.rewards.low} Z-Points` }; }
     }
 
     let loop;
     async function startAFK(boosterType) {
       const booster = BOOSTERS[boosterType];
       if (state.running) return;
-      if (!state.pubkey) {
-        log('❌ Por favor, conecta tu wallet primero.');
-        return;
-      }
-
+      if (!state.pubkey) { log('❌ Por favor, conecta tu wallet primero.'); return; }
       log(`Iniciando transacción para el Booster ${boosterType}...`);
-      
       try {
         const provider = window.solana;
         const mintPublicKey = new solanaWeb3.PublicKey(AFK_TOKEN_MINT_ADDRESS);
         const treasuryPublicKey = new solanaWeb3.PublicKey(TREASURY_WALLET_ADDRESS);
         const userPublicKey = new solanaWeb3.PublicKey(state.pubkey);
-        
         const fromTokenAccount = await splToken.getAssociatedTokenAddress(mintPublicKey, userPublicKey);
         const toTokenAccount = await splToken.getAssociatedTokenAddress(mintPublicKey, treasuryPublicKey);
-        
-        // Asumimos 9 decimales para el token. Si es diferente, cámbialo aquí.
-        const amount = booster.cost * 1e9;
-        
-        const transferInstruction = splToken.createTransferInstruction(
-          fromTokenAccount, toTokenAccount, userPublicKey, amount, [], splToken.TOKEN_PROGRAM_ID
-        );
-        
+        const amount = booster.cost * 1e9; // Asumimos 9 decimales
+        const transferInstruction = splToken.createTransferInstruction(fromTokenAccount, toTokenAccount, userPublicKey, amount, [], splToken.TOKEN_PROGRAM_ID);
         const transaction = new solanaWeb3.Transaction().add(transferInstruction);
         const { blockhash } = await connection.getRecentBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
-
         const signedTransaction = await provider.signTransaction(transaction);
         const signature = await connection.sendRawTransaction(signedTransaction.serialize());
         await connection.confirmTransaction(signature, 'confirmed');
-
         log(`✅ Transacción confirmada! Signature: ${signature.slice(0, 10)}...`);
         log(`Gastaste ${booster.cost} $AFK para activar el Booster. ¡Suerte!`);
-
-        state.running = true;
-        state.activeBooster = boosterType;
-        state.afkStart = Date.now();
-        state.secondsAFK = 0;
-        state.sessionPoints = 0;
-        
+        state.running = true; state.activeBooster = boosterType; state.afkStart = Date.now();
+        state.secondsAFK = 0; state.sessionPoints = 0;
         toggleViews(true);
         log('Modo de Recompensas iniciado. ¡A ver qué premios caen!');
-        
         loop = setInterval(() => {
           state.secondsAFK = (Date.now() - state.afkStart) / 1000;
           if (Math.floor(state.secondsAFK) % 3 === 0 && Math.floor(state.secondsAFK) > 0) {
               const reward = calculateRewardDrop();
-              if (reward.points > 0) {
-                  state.sessionPoints += reward.points;
-                  log(reward.msg);
-              }
+              if (reward.points > 0) { state.sessionPoints += reward.points; log(reward.msg); }
           }
           render();
         }, 1000);
-
       } catch (error) {
         console.error("Error en la transacción:", error);
         log(`❌ La transacción falló. Asegúrate de tener suficientes $AFK y SOL para las tasas.`);
@@ -230,14 +198,11 @@
       if(!state.running) return;
       clearInterval(loop);
       state.running = false;
-      
       const gained = Math.floor(state.sessionPoints);
       state.totalPoints += gained;
       localStorage.setItem('afk_total_points', state.totalPoints);
       log(`Sesión terminada (${reason}). Ganaste +${gained} Z‑Points. Total local: ${state.totalPoints}`);
-      
       toggleViews(false);
-
       if (state.pubkey && state.totalPoints > 0) {
         log(`Sincronizando ${state.totalPoints} puntos totales con el ranking...`);
         try {
@@ -247,9 +212,7 @@
             body: JSON.stringify({ pubkey: state.pubkey, points: state.totalPoints })
           });
           log('✅ Puntos sincronizados con el servidor.');
-        } catch (err) {
-          log('❌ No se pudo conectar con el backend.');
-        }
+        } catch (err) { log('❌ No se pudo conectar con el backend.'); }
       }
       render();
     }
@@ -267,16 +230,35 @@
         log('✅ Puntos locales reseteados.'); render(); 
     });
 
+    async function updateAfkBalance(publicKey) {
+      try {
+        const mintPublicKey = new solanaWeb3.PublicKey(AFK_TOKEN_MINT_ADDRESS);
+        const userPublicKey = new solanaWeb3.PublicKey(publicKey);
+        const tokenAccountAddress = await splToken.getAssociatedTokenAddress(mintPublicKey, userPublicKey);
+        const balanceInfo = await connection.getTokenAccountBalance(tokenAccountAddress);
+        const balance = balanceInfo.value.uiAmountString || '0';
+        $('#afk-balance').textContent = `$AFK: ${balance}`;
+        log(`Balance detectado: ${balance} $AFK`);
+      } catch (error) {
+        $('#afk-balance').textContent = `$AFK: 0`;
+        log('No se encontró balance de $AFK para esta wallet.');
+      }
+    }
+
     async function connectWallet(){
       try{
         const provider = window.solana;
         if(!provider?.isPhantom){ log('Wallet Phantom no detectada.'); return; }
-        await provider.connect();
+        await provider.connect({ onlyIfTrusted: false });
         const key = provider.publicKey.toString();
         state.pubkey = key;
         $('#pubkey').textContent = `Wallet: ${key.slice(0,6)}…${key.slice(-6)}`;
         log('Wallet conectada ✅');
-      }catch(err){ log('Error al conectar wallet.'); }
+        await updateAfkBalance(key);
+      }catch(err){ 
+        log('Error al conectar wallet.'); 
+        console.error(err);
+      }
     }
     $('#connect').addEventListener('click', connectWallet);
 
