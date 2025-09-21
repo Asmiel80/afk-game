@@ -111,7 +111,7 @@
   <script>
     const state = {
       provider: null, running:false, afkStart: null, secondsAFK: 0, sessionPoints: 0,
-      totalPoints: Number(localStorage.getItem('afk_total_points')||500), // Empezar con 500 puntos
+      totalPoints: Number(localStorage.getItem('afk_total_points')||500),
       pubkey: null, activeBooster: null
     };
 
@@ -129,19 +129,18 @@
       });
     }
 
-    // <<< CAMBIO: Nueva función para cargar los puntos desde el servidor >>>
     async function loadPointsFromServer(pubkey) {
       log('Buscando puntuación guardada en el servidor...');
       try {
         const res = await fetch(`${BACKEND_URL}/points/${pubkey}`);
         const data = await res.json();
-        if (data.ok && data.points > 0) {
-          log(`Puntuación encontrada: ${data.points}. Sincronizando.`);
+        if (data.ok && data.points > state.totalPoints) { // Solo actualizamos si el servidor tiene más puntos
+          log(`Puntuación del servidor (${data.points}) es mayor que la local (${state.totalPoints}). Sincronizando.`);
           state.totalPoints = data.points;
           localStorage.setItem('afk_total_points', state.totalPoints);
           render();
         } else {
-          log('No se encontró puntuación previa en el servidor.');
+          log('La puntuación local está actualizada. No se necesita sincronizar.');
         }
       } catch (err) {
         log('❌ No se pudo conectar con el servidor para cargar la puntuación.');
@@ -160,17 +159,12 @@
         state.pubkey = key;
         $('#pubkey').textContent = `Wallet: ${key.slice(0,6)}…${key.slice(-6)}`;
         log('Wallet conectada.');
-        
-        // <<< CAMBIO: Llamamos a la nueva función para cargar los puntos >>>
         await loadPointsFromServer(key);
-
       } catch(err) { 
         log('❌ Conexión rechazada por el usuario.'); 
         console.error(err);
       }
     }
-
-    // --- (El resto de funciones como stopAFK, startAFK, etc., no cambian) ---
 
     const BOOSTERS = {
       basico: { cost: 100, rewards: { jackpot: 1000, high: 200, mid: 50, low: 10 }, probs: { jackpot: 0.01, high: 0.05, mid: 0.2 } },
@@ -222,19 +216,25 @@
       if(!state.running) return;
       clearInterval(loop);
       state.running = false;
+      
       const gained = Math.floor(state.sessionPoints);
-      state.totalPoints += gained;
+      const boosterCost = BOOSTERS[state.activeBooster].cost;
+      const netChange = gained - boosterCost;
+
+      // Actualizamos el total local ANTES de guardar
+      state.totalPoints += gained; 
       localStorage.setItem('afk_total_points', state.totalPoints);
-      log(`Sesión terminada. Ganaste +${gained} Z‑Points.`);
+      log(`Sesión terminada. Ganaste ${gained} Z‑Points.`);
       toggleViews(false);
 
       if (state.pubkey) {
-        log(`Sincronizando ${state.totalPoints} puntos con el ranking...`);
+        log(`Sincronizando beneficio neto (${netChange}) con el ranking...`);
         try {
+          // <<< CAMBIO: Enviamos el beneficio NETO al servidor >>>
           await fetch(`${BACKEND_URL}/savePoints`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pubkey: state.pubkey, points: gained })
+            body: JSON.stringify({ pubkey: state.pubkey, points: netChange })
           });
           log('✅ Puntuación guardada en el ranking.');
         } catch (err) { log('❌ No se pudo sincronizar con el ranking.'); }
