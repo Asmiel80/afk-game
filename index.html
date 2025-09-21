@@ -48,11 +48,11 @@
       <div class="row" style="justify-content:space-between;align-items:center">
         <h1>AFK Mode <span class="neon">— Acumula y Gana 🚀</span></h1>
         <div class="row">
-          <button id="connect" class="btn btn-outline">Sincronizar Puntuación</button>
+          <button id="connect" class="btn btn-outline">Conectar Wallet para Jugar</button>
           <span id="pubkey" class="pill">Wallet: desconectada</span>
         </div>
       </div>
-      <p class="muted">Gana <b class="neon">Z‑Points</b> y gástalos en Boosters para acelerar tus ganancias. Conecta tu wallet para guardar y cargar tu puntuación en el ranking global.</p>
+      <p class="muted">Conecta tu wallet para activar los Boosters con tus <b class="neon">Z‑Points</b> y guardar tu puntuación en el ranking global.</p>
 
       <div class="grid">
         <section class="card">
@@ -125,12 +125,13 @@
       $('#afkTime').textContent = fmt(state.secondsAFK);
       document.querySelectorAll('.booster-card button').forEach(btn => {
         const booster = BOOSTERS[btn.dataset.booster];
-        btn.disabled = state.totalPoints < booster.cost || state.running;
+        // <<< CAMBIO: Los botones se desactivan si la wallet no está conectada >>>
+        btn.disabled = !state.pubkey || state.totalPoints < booster.cost || state.running;
       });
     }
 
     async function savePointsToServer() {
-      if (!state.pubkey) return; // No podemos guardar si no hay wallet conectada
+      if (!state.pubkey) return;
       try {
         await fetch(`${BACKEND_URL}/savePoints`, {
           method: 'POST',
@@ -152,10 +153,11 @@
           log(`Puntuación del servidor: ${data.points}. Sincronizando.`);
           state.totalPoints = data.points;
           localStorage.setItem('afk_total_points', state.totalPoints);
-          render();
         }
       } catch (err) {
         log('❌ No se pudo conectar con el servidor para cargar la puntuación.');
+      } finally {
+        render(); // <<< CAMBIO: Nos aseguramos de renderizar siempre después de cargar >>>
       }
     }
 
@@ -201,15 +203,15 @@
     let loop;
     async function startAFK(boosterType) {
       const booster = BOOSTERS[boosterType];
-      if (state.running || state.totalPoints < booster.cost) {
-        log('No tienes suficientes Z-Points para este booster.');
+      // La comprobación !state.pubkey es redundante porque el botón está desactivado, pero es una buena práctica
+      if (!state.pubkey || state.running || state.totalPoints < booster.cost) {
+        log('No se puede iniciar. Conecta la wallet y asegúrate de tener suficientes puntos.');
         return;
       }
       state.totalPoints -= booster.cost;
       localStorage.setItem('afk_total_points', state.totalPoints);
       log(`Gastaste ${booster.cost} Z-Points.`);
       
-      // <<< CAMBIO: Guardamos en el servidor justo después de gastar >>>
       await savePointsToServer();
       
       state.running = true;
@@ -239,10 +241,8 @@
       localStorage.setItem('afk_total_points', state.totalPoints);
       log(`Sesión terminada. Ganaste ${gained} Z‑Points. Tu nuevo total es ${state.totalPoints}.`);
       toggleViews(false);
-
-      // <<< CAMBIO: Guardamos en el servidor al terminar la sesión >>>
-      await savePointsToServer();
       
+      await savePointsToServer();
       render();
     }
     
@@ -266,7 +266,9 @@
     $('#stop').addEventListener('click', () => stopAFK());
     $('#reset').addEventListener('click', () => { 
         localStorage.setItem('afk_total_points', '500'); state.totalPoints = 500;
-        log('✅ Puntos locales reseteados. Tienes 500 para empezar.'); render(); 
+        log('✅ Puntos locales reseteados. Tienes 500 para empezar.'); 
+        savePointsToServer(); // Guardamos el reseteo en el servidor si estamos conectados
+        render(); 
     });
     $('#connect').addEventListener('click', connectWallet);
     $('#ranking').addEventListener('click', getRanking);
@@ -275,8 +277,8 @@
       window.open(IGNITER_URL, '_blank');
     });
 
-    log('Bienvenido. ¡Empieza a acumular Z-Points!');
-    render();
+    log('Bienvenido. Conecta tu wallet para empezar a jugar.');
+    render(); // Renderizamos al inicio para aplicar el estado de los botones
   </script>
 </body>
 </html>
