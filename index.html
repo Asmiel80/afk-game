@@ -110,8 +110,8 @@
   <script>
     const state = {
       provider: null, running:false, afkStart: null, secondsAFK: 0, sessionPoints: 0,
-      // <<< CAMBIO: El valor inicial por defecto ahora es 0 en lugar de 500 >>>
-      totalPoints: Number(localStorage.getItem('afk_total_points')||0),
+      // <<< CAMBIO: El valor inicial ahora es 0 hasta que se conecte la wallet >>>
+      totalPoints: 0,
       pubkey: null, activeBooster: null
     };
 
@@ -143,23 +143,20 @@
       }
     }
 
-    // <<< CAMBIO: La función ahora detecta wallets nuevas y les da 100 puntos >>>
     async function loadPointsFromServer(pubkey) {
       log('Buscando puntuación guardada en el servidor...');
       try {
         const res = await fetch(`${BACKEND_URL}/points/${pubkey}`);
         
-        // Si la respuesta no es OK (ej. 404 Not Found), asumimos que es un usuario nuevo.
         if (!res.ok) {
           log('Wallet nueva detectada. ¡Bienvenido!');
           log('🎁 Recibes 100 Z-Points de bienvenida.');
           state.totalPoints = 100;
-          await savePointsToServer(); // Guardamos los puntos de bienvenida en el servidor
+          await savePointsToServer(); 
           return;
         }
 
         const data = await res.json();
-        // Si la respuesta es OK pero no contiene puntos, también es un usuario nuevo.
         if (data.ok && typeof data.points !== 'undefined') {
           log(`Puntuación del servidor: ${data.points}. Sincronizando.`);
           state.totalPoints = data.points;
@@ -170,7 +167,9 @@
           await savePointsToServer();
         }
       } catch (err) {
-        log('❌ No se pudo conectar con el servidor para cargar la puntuación. Se usarán los puntos locales.');
+        log('❌ No se pudo conectar con el servidor. Se usarán los puntos locales como respaldo.');
+        // <<< CAMBIO: Si el servidor falla, se cargan los puntos desde localStorage >>>
+        state.totalPoints = Number(localStorage.getItem('afk_total_points') || 0);
       } finally {
         localStorage.setItem('afk_total_points', state.totalPoints);
         render();
@@ -287,7 +286,7 @@
     });
 
     log('Bienvenido. Conecta tu wallet para empezar a jugar.');
-    render(); // Renderizamos al inicio para aplicar el estado de los botones
+    render();
   </script>
 </body>
 </html>
