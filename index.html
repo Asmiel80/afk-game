@@ -192,12 +192,16 @@
 
     async function fetchSolxPrice() {
       try {
-        log('Obteniendo precio de SOLX...');
-        const apiURL = `https://api.coingecko.com/api/v3/simple/token_price/solana?contract_addresses=${SOLX_MINT_ADDRESS.toLowerCase()}&vs_currencies=eur`;
-        const res = await fetch(apiURL);
-        if (!res.ok) throw new Error(`CoinGecko API request failed with status ${res.status}`);
+        log('Obteniendo precio de SOLX desde Igniter...');
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://api.igniter.solaxy.io/v1/token/Cf2LnRpmcUxY8qkAyiaaPpgAtUHgzkH3tPhMAevE9zLg')}`;
+        const res = await fetch(proxyUrl);
+        if (!res.ok) throw new Error(`Proxy request failed with status ${res.status}`);
         const data = await res.json();
-        const price = data[SOLX_MINT_ADDRESS.toLowerCase()].eur;
+        const tokenData = JSON.parse(data.contents);
+        
+        const price = tokenData.price_usd;
+        if (typeof price !== 'number') throw new Error('Price not found in Igniter API response');
+
         state.solxPrice = price;
         log(`Precio actual de SOLX: ${price.toFixed(6)}€`);
         updatePricesUI();
@@ -233,6 +237,7 @@
         const mintPublicKey = new solanaWeb3.PublicKey(SOLX_MINT_ADDRESS);
         const treasuryPublicKey = new solanaWeb3.PublicKey(TREASURY_WALLET_ADDRESS);
         const userPublicKey = new solanaWeb3.PublicKey(state.pubkey);
+        
         const fromTokenAccount = await splToken.getAssociatedTokenAddress(mintPublicKey, userPublicKey);
         const toTokenAccount = await splToken.getAssociatedTokenAddress(mintPublicKey, treasuryPublicKey);
         
