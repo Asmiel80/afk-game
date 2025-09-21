@@ -48,11 +48,11 @@
       <div class="row" style="justify-content:space-between;align-items:center">
         <h1>AFK Mode <span class="neon">— Acumula y Gana 🚀</span></h1>
         <div class="row">
-          <button id="connect" class="btn btn-outline">Sincronizar Ranking</button>
+          <button id="connect" class="btn btn-outline">Sincronizar Puntuación</button>
           <span id="pubkey" class="pill">Wallet: desconectada</span>
         </div>
       </div>
-      <p class="muted">Gana <b class="neon">Z‑Points</b> y gástalos en Boosters para acelerar tus ganancias. Conecta tu wallet para guardar tu puntuación en el ranking global.</p>
+      <p class="muted">Gana <b class="neon">Z‑Points</b> y gástalos en Boosters para acelerar tus ganancias. Conecta tu wallet para guardar y cargar tu puntuación en el ranking global.</p>
 
       <div class="grid">
         <section class="card">
@@ -109,15 +109,6 @@
   </div>
 
   <script>
-    // --- Configuración ---
-    const connection = new solanaWeb3.Connection('https://mainnet.rpc.solaxy.io');
-
-    const BOOSTERS = {
-      basico: { cost: 100, rewards: { jackpot: 1000, high: 200, mid: 50, low: 10 }, probs: { jackpot: 0.01, high: 0.05, mid: 0.2 } },
-      raro: { cost: 500, rewards: { jackpot: 10000, high: 1000, mid: 250, low: 50 }, probs: { jackpot: 0.02, high: 0.08, mid: 0.25 } },
-      legendario: { cost: 2500, rewards: { jackpot: 250000, high: 5000, mid: 1000, low: 200 }, probs: { jackpot: 0.005, high: 0.1, mid: 0.3 } },
-    };
-
     const state = {
       provider: null, running:false, afkStart: null, secondsAFK: 0, sessionPoints: 0,
       totalPoints: Number(localStorage.getItem('afk_total_points')||500), // Empezar con 500 puntos
@@ -138,6 +129,55 @@
       });
     }
 
+    // <<< CAMBIO: Nueva función para cargar los puntos desde el servidor >>>
+    async function loadPointsFromServer(pubkey) {
+      log('Buscando puntuación guardada en el servidor...');
+      try {
+        const res = await fetch(`${BACKEND_URL}/points/${pubkey}`);
+        const data = await res.json();
+        if (data.ok && data.points > 0) {
+          log(`Puntuación encontrada: ${data.points}. Sincronizando.`);
+          state.totalPoints = data.points;
+          localStorage.setItem('afk_total_points', state.totalPoints);
+          render();
+        } else {
+          log('No se encontró puntuación previa en el servidor.');
+        }
+      } catch (err) {
+        log('❌ No se pudo conectar con el servidor para cargar la puntuación.');
+      }
+    }
+
+    async function connectWallet() {
+      const provider = window.solana;
+      if (!provider || !provider.isPhantom) {
+        log('❌ Wallet Phantom no detectada. Por favor, instálala.');
+        return;
+      }
+      try {
+        const resp = await provider.connect();
+        const key = resp.publicKey.toString();
+        state.pubkey = key;
+        $('#pubkey').textContent = `Wallet: ${key.slice(0,6)}…${key.slice(-6)}`;
+        log('Wallet conectada.');
+        
+        // <<< CAMBIO: Llamamos a la nueva función para cargar los puntos >>>
+        await loadPointsFromServer(key);
+
+      } catch(err) { 
+        log('❌ Conexión rechazada por el usuario.'); 
+        console.error(err);
+      }
+    }
+
+    // --- (El resto de funciones como stopAFK, startAFK, etc., no cambian) ---
+
+    const BOOSTERS = {
+      basico: { cost: 100, rewards: { jackpot: 1000, high: 200, mid: 50, low: 10 }, probs: { jackpot: 0.01, high: 0.05, mid: 0.2 } },
+      raro: { cost: 500, rewards: { jackpot: 10000, high: 1000, mid: 250, low: 50 }, probs: { jackpot: 0.02, high: 0.08, mid: 0.25 } },
+      legendario: { cost: 2500, rewards: { jackpot: 250000, high: 5000, mid: 1000, low: 200 }, probs: { jackpot: 0.005, high: 0.1, mid: 0.3 } },
+    };
+    
     function toggleViews(showAFK) {
       $('#boosters').style.display = showAFK ? 'none' : 'grid';
       $('#afk-display').style.display = showAFK ? 'block' : 'none';
@@ -159,16 +199,13 @@
         log('No tienes suficientes Z-Points para este booster.');
         return;
       }
-      
       state.totalPoints -= booster.cost;
       log(`Gastaste ${booster.cost} Z-Points para activar el Booster ${boosterType}. ¡Suerte!`);
-
       state.running = true;
       state.activeBooster = boosterType;
       state.afkStart = Date.now();
       state.secondsAFK = 0;
       state.sessionPoints = 0;
-      
       toggleViews(true);
       log('Modo de Recompensas iniciado.');
       loop = setInterval(() => {
@@ -185,7 +222,6 @@
       if(!state.running) return;
       clearInterval(loop);
       state.running = false;
-      
       const gained = Math.floor(state.sessionPoints);
       state.totalPoints += gained;
       localStorage.setItem('afk_total_points', state.totalPoints);
@@ -205,26 +241,7 @@
       }
       render();
     }
-
-    async function connectWallet() {
-      const provider = window.solana;
-      if (!provider || !provider.isPhantom) {
-        log('❌ Wallet Phantom no detectada. Por favor, instálala.');
-        return;
-      }
-      try {
-        const resp = await provider.connect();
-        const key = resp.publicKey.toString();
-        state.pubkey = key;
-        $('#pubkey').textContent = `Wallet: ${key.slice(0,6)}…${key.slice(-6)}`;
-        log('Wallet conectada. Sincronizando puntos...');
-        await stopAFK('conexión de wallet'); // Llama a stopAFK para forzar la sincronización
-      } catch(err) { 
-        log('❌ Conexión rechazada por el usuario.'); 
-        console.error(err);
-      }
-    }
-
+    
     async function getRanking(){
       log('Consultando el ranking...');
       try {
@@ -239,7 +256,6 @@
       } catch(err) { log('❌ No se pudo conectar con el servidor del ranking.'); }
     }
     
-    // Asignación de Eventos
     document.querySelectorAll('.booster-card button').forEach(btn => {
         btn.addEventListener('click', () => startAFK(btn.dataset.booster));
     });

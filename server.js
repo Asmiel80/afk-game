@@ -45,6 +45,12 @@ async function getRanking(limit=20){
   return db.all('SELECT pubkey, points FROM players ORDER BY points DESC LIMIT ?', limit);
 }
 
+// <<< AÑADE ESTA NUEVA FUNCIÓN >>>
+async function getPoints(pubkey){
+  const row = await db.get('SELECT total_points FROM players WHERE pubkey = ?', pubkey);
+  return row || { total_points: 0 };
+}
+
 // Routes
 app.post('/savePoints', async (req,res)=>{
   try{
@@ -58,6 +64,18 @@ app.post('/savePoints', async (req,res)=>{
 app.get('/ranking', async (_req,res)=>{
   try{ res.json({ ok:true, ranking: await getRanking() }); }
   catch(e){ res.status(500).json({ ok:false, error:'Ranking error' }); }
+});
+
+// <<< AÑADE ESTA NUEVA RUTA >>>
+app.get('/points/:pubkey', async (req, res) => {
+  try {
+    const { pubkey } = req.params;
+    if (!pubkey) return res.status(400).json({ ok: false, error: 'Falta pubkey' });
+    const result = await getPoints(pubkey);
+    res.json({ ok: true, points: result.total_points });
+  } catch(e) {
+    res.status(500).json({ ok: false, error: 'DB error' });
+  }
 });
 
 app.post('/resetWeekly', async (_req,res)=>{
