@@ -48,11 +48,11 @@
       <div class="row" style="justify-content:space-between;align-items:center">
         <h1>AFK Mode <span class="neon">— Acumula y Gana 🚀</span></h1>
         <div class="row">
-          <button id="connect" class="btn btn-outline">Conectar Wallet para Jugar</button>
+          <button id="connect" class="btn btn-outline">Conectar Wallet</button>
           <span id="pubkey" class="pill">Wallet: desconectada</span>
         </div>
       </div>
-      <p class="muted">Conecta tu wallet para activar los Boosters con tus <b class="neon">Z‑Points</b> y guardar tu puntuación en el ranking global.</p>
+      <p class="muted">Conecta tu wallet para cargar tu puntuación, activar los Boosters con tus <b class="neon">Z‑Points</b> y guardar tu progreso en el ranking global.</p>
 
       <div class="grid">
         <section class="card">
@@ -111,7 +111,8 @@
   <script>
     const state = {
       provider: null, running:false, afkStart: null, secondsAFK: 0, sessionPoints: 0,
-      totalPoints: Number(localStorage.getItem('afk_total_points')||500),
+      // <<< CAMBIO: El estado inicial de los puntos es siempre 0 >>>
+      totalPoints: 0,
       pubkey: null, activeBooster: null
     };
 
@@ -125,7 +126,6 @@
       $('#afkTime').textContent = fmt(state.secondsAFK);
       document.querySelectorAll('.booster-card button').forEach(btn => {
         const booster = BOOSTERS[btn.dataset.booster];
-        // <<< CAMBIO: Los botones se desactivan si la wallet no está conectada >>>
         btn.disabled = !state.pubkey || state.totalPoints < booster.cost || state.running;
       });
     }
@@ -138,7 +138,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pubkey: state.pubkey, points: state.totalPoints })
         });
-        log('Sincronización con el servidor completada.');
+        log('Puntuación sincronizada con el servidor.');
       } catch (err) { 
         log('❌ No se pudo sincronizar con el ranking.'); 
       }
@@ -150,14 +150,14 @@
         const res = await fetch(`${BACKEND_URL}/points/${pubkey}`);
         const data = await res.json();
         if (data.ok) {
-          log(`Puntuación del servidor: ${data.points}. Sincronizando.`);
+          log(`Puntuación del servidor: ${data.points}.`);
           state.totalPoints = data.points;
           localStorage.setItem('afk_total_points', state.totalPoints);
         }
       } catch (err) {
         log('❌ No se pudo conectar con el servidor para cargar la puntuación.');
       } finally {
-        render(); // <<< CAMBIO: Nos aseguramos de renderizar siempre después de cargar >>>
+        render();
       }
     }
 
@@ -171,6 +171,8 @@
         const resp = await provider.connect();
         const key = resp.publicKey.toString();
         state.pubkey = key;
+        $('#connect').textContent = 'Wallet Conectada';
+        $('#connect').disabled = true;
         $('#pubkey').textContent = `Wallet: ${key.slice(0,6)}…${key.slice(-6)}`;
         log('Wallet conectada.');
         await loadPointsFromServer(key);
@@ -203,7 +205,6 @@
     let loop;
     async function startAFK(boosterType) {
       const booster = BOOSTERS[boosterType];
-      // La comprobación !state.pubkey es redundante porque el botón está desactivado, pero es una buena práctica
       if (!state.pubkey || state.running || state.totalPoints < booster.cost) {
         log('No se puede iniciar. Conecta la wallet y asegúrate de tener suficientes puntos.');
         return;
@@ -211,9 +212,7 @@
       state.totalPoints -= booster.cost;
       localStorage.setItem('afk_total_points', state.totalPoints);
       log(`Gastaste ${booster.cost} Z-Points.`);
-      
       await savePointsToServer();
-      
       state.running = true;
       state.activeBooster = boosterType;
       state.afkStart = Date.now();
@@ -235,13 +234,11 @@
       if(!state.running) return;
       clearInterval(loop);
       state.running = false;
-      
       const gained = Math.floor(state.sessionPoints);
       state.totalPoints += gained;
       localStorage.setItem('afk_total_points', state.totalPoints);
       log(`Sesión terminada. Ganaste ${gained} Z‑Points. Tu nuevo total es ${state.totalPoints}.`);
       toggleViews(false);
-      
       await savePointsToServer();
       render();
     }
@@ -265,9 +262,12 @@
     });
     $('#stop').addEventListener('click', () => stopAFK());
     $('#reset').addEventListener('click', () => { 
-        localStorage.setItem('afk_total_points', '500'); state.totalPoints = 500;
-        log('✅ Puntos locales reseteados. Tienes 500 para empezar.'); 
-        savePointsToServer(); // Guardamos el reseteo en el servidor si estamos conectados
+        state.totalPoints = 0; // <<< CAMBIO: Resetea a 0
+        localStorage.setItem('afk_total_points', '0');
+        log('✅ Puntos locales reseteados a 0.'); 
+        if(state.pubkey) {
+          savePointsToServer();
+        }
         render(); 
     });
     $('#connect').addEventListener('click', connectWallet);
@@ -277,8 +277,8 @@
       window.open(IGNITER_URL, '_blank');
     });
 
-    log('Bienvenido. Conecta tu wallet para empezar a jugar.');
-    render(); // Renderizamos al inicio para aplicar el estado de los botones
+    log('Bienvenido. Conecta tu wallet para cargar tu puntuación y empezar a jugar.');
+    render();
   </script>
 </body>
 </html>
