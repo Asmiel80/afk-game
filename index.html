@@ -138,24 +138,80 @@
       });
     }
 
+    async function savePointsToServer() {
+      if (!state.pubkey) return;
+      try {
+        await fetch(`${BACKEND_URL}/savePoints`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pubkey: state.pubkey, points: state.totalPoints })
+        });
+        log('Puntuación sincronizada con el servidor.');
+      } catch (err) { 
+        log('❌ No se pudo sincronizar con el ranking.'); 
+      }
+    }
+
+    async function loadPointsFromServer(pubkey) {
+      log('Buscando puntuación guardada en el servidor...');
+      try {
+        const res = await fetch(`${BACKEND_URL}/points/${pubkey}`);
+        const data = await res.json();
+        if (data.ok) {
+          log(`Puntuación del servidor: ${data.points}.`);
+          state.totalPoints = data.points;
+          localStorage.setItem('afk_total_points', state.totalPoints);
+        }
+      } catch (err) {
+        log('❌ No se pudo conectar con el servidor para cargar la puntuación.');
+      } finally {
+        render();
+      }
+    }
+
+    async function connectWallet() {
+      const provider = window.solana;
+      if (!provider || !provider.isPhantom) {
+        log('❌ Wallet Phantom no detectada. Por favor, instálala.');
+        return;
+      }
+      try {
+        const resp = await provider.connect();
+        state.provider = provider;
+        const key = resp.publicKey.toString();
+        state.pubkey = key;
+        $('#connect').textContent = 'Wallet Conectada';
+        $('#connect').disabled = true;
+        $('#pubkey').textContent = `Wallet: ${key.slice(0,6)}…${key.slice(-6)}`;
+        log('Wallet conectada.');
+        await loadPointsFromServer(key);
+      } catch(err) { 
+        log('❌ Conexión rechazada por el usuario.'); 
+        console.error(err);
+      }
+    }
+
     async function fetchSolxPrice() {
       try {
         log('Obteniendo precio de SOLX desde Jupiter...');
-        const jupiterUrl = `https://price.jup.ag/v4/price?ids=${SOLX_MINT_ADDRESS}&vsToken=${USDC_MINT_ADDRESS}`;
-        const res = await fetch(jupiterUrl);
-        if (!res.ok) throw new Error(`Jupiter API request failed with status ${res.status}`);
-        const data = await res.json();
+        const jupiterApiUrl = `https://price.jup.ag/v4/price?ids=${SOLX_MINT_ADDRESS}&vsToken=${USDC_MINT_ADDRESS}`;
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(jupiterApiUrl)}`;
+
+        const res = await fetch(proxyUrl);
+        if (!res.ok) throw new Error(`Proxy request failed`);
         
+        const proxiedData = await res.json();
+        const data = JSON.parse(proxiedData.contents);
+
         const price = data.data[SOLX_MINT_ADDRESS]?.price;
         if (typeof price !== 'number') throw new Error('Price not found in Jupiter API response');
 
-        // Asumimos que el precio en USDC es muy similar al Euro para simplificar
         state.solxPrice = price;
-        log(`Precio actual de SOLX: ~${price.toFixed(6)} €`);
+        log(`Precio actual de SOLX: ~${price.toFixed(6)} € (en USDC)`);
         updatePricesUI();
       } catch (err) {
         log('❌ No se pudo obtener el precio de SOLX. Los botones de activar estarán desactivados.');
-        console.error(err);
+        console.error("Error detallado al obtener precio:", err);
       }
     }
 
@@ -189,8 +245,8 @@
         const fromTokenAccount = await splToken.getAssociatedTokenAddress(mintPublicKey, userPublicKey);
         const toTokenAccount = await splToken.getAssociatedTokenAddress(mintPublicKey, treasuryPublicKey);
         
-        // Asumimos 9 decimales para SOLX
-        const amount = Math.ceil(solxAmount * 1e9); 
+        const solxDecimals = 9;
+        const amount = Math.ceil(solxAmount * (10 ** solxDecimals));
         
         const transferInstruction = splToken.createTransferInstruction(fromTokenAccount, toTokenAccount, userPublicKey, amount);
         const transaction = new solanaWeb3.Transaction().add(transferInstruction);
@@ -225,39 +281,73 @@
       }
     }
     
-    // ... (El resto de funciones como connectWallet, stopAFK, etc., que ya funcionan, se incluyen aquí)
+    async function stopAFK(reason = 'botón Detener') {
+      if(!state.running) return;
+      clearInterval(loop);
+      state.running = false;
+      const gained = Math.floor(state.sessionPoints);
+      state.totalPoints += gained;
+      localStorage.setItem('afk_total_points', state.totalPoints);
+      log(`Sesión terminada. Ganaste ${gained} Z‑Points. Tu nuevo total es ${state.totalPoints}.`);
+      toggleViews(false);
+      await savePointsToServer();
+      render();
+    }
 
-    async function connectWallet() {
-      const provider = window.solana;
-      if (!provider || !provider.isPhantom) {
-        log('❌ Wallet Phantom no detectada. Por favor, instálala.');
-        return;
-      }
+    function toggleViews(showAFK) {
+      $('#boosters').style.display = showAFK ? 'none' : 'grid';
+      $('#afk-display').style.display = showAFK ? 'block' : 'none';
+    }
+
+    function calculateRewardDrop() {
+      const booster = BOOSTERS_REWARDS[state.activeBooster];
+      const roll = Math.random();
+      if (roll < booster.probs.jackpot) { return { points: booster.rewards.jackpot, msg: `🚀 ¡¡¡JACKPOT!!! +${booster.rewards.jackpot} Z-Points` }; }
+      else if (roll < booster.probs.jackpot + booster.probs.high) { return { points: booster.rewards.high, msg: `💎 ¡DROP ÉPICO! +${booster.rewards.high} Z-Points` }; }
+      else if (roll < booster.probs.jackpot + booster.probs.high + booster.probs.mid) { return { points: booster.rewards.mid, msg: `🔥 ¡Premio bueno! +${booster.rewards.mid} Z-Points` }; }
+      else { return Math.random() < 0.4 ? { points: 0 } : { points: booster.rewards.low, msg: `+${booster.rewards.low} Z-Points` }; }
+    }
+
+    async function getRanking(){
+      log('Consultando el ranking...');
       try {
-        const resp = await provider.connect();
-        state.provider = provider;
-        const key = resp.publicKey.toString();
-        state.pubkey = key;
-        $('#connect').textContent = 'Wallet Conectada';
-        $('#connect').disabled = true;
-        $('#pubkey').textContent = `Wallet: ${key.slice(0,6)}…${key.slice(-6)}`;
-        log('Wallet conectada.');
-        await loadPointsFromServer(key);
-      } catch(err) { 
-        log('❌ Conexión rechazada por el usuario.'); 
-        console.error(err);
-      }
+        const res = await fetch(`${BACKEND_URL}/ranking`);
+        const data = await res.json();
+        if(data.ok && data.ranking){
+          log('🏆 Ranking Global:');
+          data.ranking.forEach((p, i) => {
+            log(`${i+1}. ${p.pubkey.slice(0,4)}...${p.pubkey.slice(-4)} — ${p.points} puntos`);
+          });
+        } else { log(`❌ Error al cargar el ranking.`); }
+      } catch(err) { log('❌ No se pudo conectar con el servidor del ranking.'); }
     }
     
     window.addEventListener('load', () => {
         render();
         fetchSolxPrice();
     });
-
+    
     document.querySelectorAll('.booster-card button').forEach(btn => {
         btn.addEventListener('click', () => startAFK(btn.dataset.booster));
     });
+    $('#stop').addEventListener('click', () => stopAFK());
+    $('#reset').addEventListener('click', () => { 
+        state.totalPoints = 0;
+        localStorage.setItem('afk_total_points', '0');
+        log('✅ Puntos locales reseteados a 0.'); 
+        if(state.pubkey) {
+          savePointsToServer();
+        }
+        render(); 
+    });
+    $('#connect').addEventListener('click', connectWallet);
+    $('#ranking').addEventListener('click', getRanking);
+    $('#buyAfk').addEventListener('click', () => {
+      log('Abriendo Igniter para comprar el token AFK...');
+      window.open(IGNITER_URL, '_blank');
+    });
 
+    log('Bienvenido. Conecta tu wallet para cargar tu puntuación y empezar a jugar.');
   </script>
 </body>
 </html>
