@@ -98,7 +98,6 @@
           </div>
           <div style="margin-top:12px" class="row">
             <button id="ranking" class="btn btn-outline">Ver Ranking</button>
-            <button id="reset" class="btn btn-ghost">Reset Puntos</button>
           </div>
         </aside>
       </div>
@@ -264,12 +263,6 @@
         btn.addEventListener('click', () => startAFK(btn.dataset.booster));
     });
     $('#stop').addEventListener('click', () => stopAFK());
-    $('#reset').addEventListener('click', () => { 
-        localStorage.setItem('afk_total_points', '500'); state.totalPoints = 500;
-        log('✅ Puntos locales reseteados. Tienes 500 para empezar.'); 
-        savePointsToServer(); // Guardamos el reseteo en el servidor si estamos conectados
-        render(); 
-    });
     $('#connect').addEventListener('click', connectWallet);
     $('#ranking').addEventListener('click', getRanking);
     $('#buyAfk').addEventListener('click', () => {
