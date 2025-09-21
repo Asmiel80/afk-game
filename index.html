@@ -47,7 +47,7 @@
       <div class="row" style="justify-content:space-between;align-items:center">
         <h1>AFK Mode <span class="neon">— Activa y Gana 🚀</span></h1>
         <div class="row">
-          <button id="connect" class="btn btn-outline">Conectar wallet</button>
+          <button id="connect" class="btn btn-outline" disabled>Conectando Wallet...</button>
           <span id="pubkey" class="pill">Wallet: desconectada</span>
           <span id="afk-balance" class="pill">$AFK: --</span>
         </div>
@@ -118,7 +118,7 @@
     };
 
     const state = {
-      running:false, afkStart: null, secondsAFK: 0, sessionPoints: 0,
+      provider: null, running:false, afkStart: null, secondsAFK: 0, sessionPoints: 0,
       totalPoints: Number(localStorage.getItem('afk_total_points')||0),
       pubkey: null, activeBooster: null
     };
@@ -137,8 +137,8 @@
     }
 
     function toggleViews(showAFK) {
-        $('#boosters').style.display = showAFK ? 'none' : 'grid';
-        $('#afk-display').style.display = showAFK ? 'block' : 'none';
+      $('#boosters').style.display = showAFK ? 'none' : 'grid';
+      $('#afk-display').style.display = showAFK ? 'block' : 'none';
     }
 
     function calculateRewardDrop() {
@@ -157,19 +157,18 @@
       if (!state.pubkey) { log('❌ Por favor, conecta tu wallet primero.'); return; }
       log(`Iniciando transacción para el Booster ${boosterType}...`);
       try {
-        const provider = window.solaxy || window.solana;
         const mintPublicKey = new solanaWeb3.PublicKey(AFK_TOKEN_MINT_ADDRESS);
         const treasuryPublicKey = new solanaWeb3.PublicKey(TREASURY_WALLET_ADDRESS);
         const userPublicKey = new solanaWeb3.PublicKey(state.pubkey);
         const fromTokenAccount = await splToken.getAssociatedTokenAddress(mintPublicKey, userPublicKey);
         const toTokenAccount = await splToken.getAssociatedTokenAddress(mintPublicKey, treasuryPublicKey);
-        const amount = booster.cost * 1e9; // Asumimos 9 decimales
+        const amount = booster.cost * 1e9;
         const transferInstruction = splToken.createTransferInstruction(fromTokenAccount, toTokenAccount, userPublicKey, amount, [], splToken.TOKEN_PROGRAM_ID);
         const transaction = new solanaWeb3.Transaction().add(transferInstruction);
         const { blockhash } = await connection.getRecentBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
-        const signedTransaction = await provider.signTransaction(transaction);
+        const signedTransaction = await state.provider.signTransaction(transaction);
         const signature = await connection.sendRawTransaction(signedTransaction.serialize());
         await connection.confirmTransaction(signature, 'confirmed');
         log(`✅ Transacción confirmada! Signature: ${signature.slice(0, 10)}...`);
@@ -177,7 +176,7 @@
         state.running = true; state.activeBooster = boosterType; state.afkStart = Date.now();
         state.secondsAFK = 0; state.sessionPoints = 0;
         toggleViews(true);
-        log('Modo de Recompensas iniciado. ¡A ver qué premios caen!');
+        log('Modo de Recompensas iniciado.');
         loop = setInterval(() => {
           state.secondsAFK = (Date.now() - state.afkStart) / 1000;
           if (Math.floor(state.secondsAFK) % 3 === 0 && Math.floor(state.secondsAFK) > 0) {
@@ -244,14 +243,13 @@
     }
 
     async function connectWallet(){
+      if(!state.provider) {
+        log('Wallet no disponible.');
+        return;
+      }
       try{
-        const provider = window.solaxy || window.solana;
-        if(!provider){ 
-          log('Wallet no detectada. Asegúrate de tener Solaxy o Phantom instalada.'); 
-          return; 
-        }
-        await provider.connect({ onlyIfTrusted: false });
-        const key = provider.publicKey.toString();
+        await state.provider.connect({ onlyIfTrusted: false });
+        const key = state.provider.publicKey.toString();
         state.pubkey = key;
         $('#pubkey').textContent = `Wallet: ${key.slice(0,6)}…${key.slice(-6)}`;
         log('Wallet conectada ✅');
@@ -261,7 +259,6 @@
         console.error(err);
       }
     }
-    $('#connect').addEventListener('click', connectWallet);
 
     async function getRanking(){
       log('Consultando el ranking...');
@@ -276,10 +273,32 @@
         } else { log(`❌ Error: ${data.error}`); }
       } catch(err) { log('❌ No se pudo conectar con el backend.'); }
     }
+
+    // <<< CAMBIO: Lógica para esperar a que la wallet esté lista >>>
+    function initializeApp() {
+        const connectButton = $('#connect');
+        
+        // Intentamos encontrar el proveedor (Solaxy tiene prioridad)
+        const provider = window.solaxy || window.solana;
+
+        if (provider) {
+            state.provider = provider;
+            connectButton.disabled = false;
+            connectButton.textContent = 'Conectar wallet';
+            log('Wallet detectada. ¡Lista para conectar!');
+        } else {
+            connectButton.textContent = 'Wallet no encontrada';
+            log('No se detectó una wallet compatible (Solaxy o Phantom).');
+        }
+    }
+
+    // Nos aseguramos de que la página y los scripts de la wallet hayan cargado
+    window.addEventListener('load', initializeApp);
+    
+    $('#connect').addEventListener('click', connectWallet);
     $('#ranking').addEventListener('click', getRanking);
 
     render();
-    log('Bienvenido. Conecta tu wallet y elige un Booster para empezar a ganar.');
   </script>
 </body>
 </html>
