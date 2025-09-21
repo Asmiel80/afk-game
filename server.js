@@ -28,13 +28,15 @@ let db;
   console.log('DB ready');
 })();
 
-async function addPoints(pubkey, pts){
-  const row = await db.get('SELECT * FROM players WHERE pubkey = ?', pubkey);
-  if(row){
-    // Usamos total_points para el ranking persistente y points para el semanal
-    await db.run('UPDATE players SET points = points + ?, total_points = total_points + ? WHERE pubkey = ?', pts, pts, pubkey);
-  }else{
-    await db.run('INSERT INTO players(pubkey, points, total_points) VALUES (?,?,?)', pubkey, pts, pts);
+async function setPoints(pubkey, newTotal) {
+  const row = await db.get('SELECT total_points FROM players WHERE pubkey = ?', pubkey);
+  if (row) {
+    // Calculamos cuánto ha cambiado para el ranking semanal
+    const difference = newTotal - row.total_points;
+    await db.run('UPDATE players SET points = points + ?, total_points = ? WHERE pubkey = ?', difference, newTotal, pubkey);
+  } else {
+    // Si es un jugador nuevo, el semanal y el total son iguales
+    await db.run('INSERT INTO players(pubkey, points, total_points) VALUES (?, ?, ?)', pubkey, newTotal, newTotal);
   }
 }
 
@@ -53,12 +55,40 @@ async function getPoints(pubkey){
 // Ruta para guardar puntos (ahora recibe solo los puntos ganados en la sesión)
 app.post('/savePoints', async (req,res)=>{
   try{
-    const { pubkey, points } = req.body || {};
+    const { pubkey, points } = req.body || {}; // 'points' ahora es el nuevo total
     if(!pubkey || !Number.isFinite(points)) return res.status(400).json({ ok:false, error:'Faltan datos' });
-    // Se suman los puntos recibidos (que son la ganancia de la sesión)
-    await addPoints(pubkey, Math.max(0, Math.floor(points)));
+
+    // Llamamos a la nueva función que establece el total
+    await setPoints(pubkey, Math.max(0, Math.floor(points)));
     res.json({ ok:true });
   }catch(e){ console.error(e); res.status(500).json({ ok:false, error:'DB error' }); }
+});
+
+// <<< AÑADE ESTA NUEVA RUTA >>>
+app.get('/price/:tokenMint', async (req, res) => {
+  try {
+    const { tokenMint } = req.params;
+    const usdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyB7u6T';
+    const apiURL = `https://price.jup.ag/v4/price?ids=${tokenMint}&vsToken=${usdcMint}`;
+
+    const fetchRes = await fetch(apiURL);
+    if (!fetchRes.ok) {
+      throw new Error(`Jupiter API failed with status ${fetchRes.status}`);
+    }
+    const data = await fetchRes.json();
+
+    const price = data.data[tokenMint]?.price;
+
+    if (typeof price !== 'number') {
+      return res.status(404).json({ ok: false, error: 'Price not found' });
+    }
+
+    res.json({ ok: true, price: price });
+
+  } catch(e) {
+    console.error("Price fetch error:", e);
+    res.status(500).json({ ok: false, error: 'Failed to fetch price' });
+  }
 });
 
 app.get('/ranking', async (_req,res)=>{

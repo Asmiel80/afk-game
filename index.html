@@ -109,7 +109,6 @@
   <script>
     const SOLX_MINT_ADDRESS = 'Cf2LnRpmcUxY8qkAyiaaPpgAtUHgzkH3tPhMAevE9zLg';
     const TREASURY_WALLET_ADDRESS = 'F3zY8TZ9jiCTneBkPQr1DMbyT9vgwdBUXCoZB9h4GP5G';
-    const USDC_MINT_ADDRESS = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyB7u6T';
     const connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl('mainnet-beta'));
 
     const BOOSTER_PRICES_EUR = { basico: 1, raro: 3, legendario: 7 };
@@ -193,21 +192,16 @@
 
     async function fetchSolxPrice() {
       try {
-        log('Obteniendo precio de SOLX desde Jupiter...');
-        const jupiterApiUrl = `https://price.jup.ag/v4/price?ids=${SOLX_MINT_ADDRESS}&vsToken=${USDC_MINT_ADDRESS}`;
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(jupiterApiUrl)}`;
-
-        const res = await fetch(proxyUrl);
-        if (!res.ok) throw new Error(`Proxy request failed`);
+        log('Obteniendo precio de SOLX desde el backend...');
+        const res = await fetch(`${BACKEND_URL}/price/${SOLX_MINT_ADDRESS}`);
+        if (!res.ok) throw new Error(`El backend falló con estado ${res.status}`);
+        const data = await res.json();
         
-        const proxiedData = await res.json();
-        const data = JSON.parse(proxiedData.contents);
-
-        const price = data.data[SOLX_MINT_ADDRESS]?.price;
-        if (typeof price !== 'number') throw new Error('Price not found in Jupiter API response');
-
+        if (!data.ok || typeof data.price !== 'number') throw new Error('El backend no devolvió un precio válido');
+        
+        const price = data.price;
         state.solxPrice = price;
-        log(`Precio actual de SOLX: ~${price.toFixed(6)} € (en USDC)`);
+        log(`Precio actual de SOLX: ~${price.toFixed(6)} €`);
         updatePricesUI();
       } catch (err) {
         log('❌ No se pudo obtener el precio de SOLX. Los botones de activar estarán desactivados.');
