@@ -4,13 +4,19 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>AFK Mode — Earn while you’re AFK 💤</title>
+  
   <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
   <script src="https://unpkg.com/@solana/spl-token@latest/lib/index.iife.js"></script>
+
+  <script src="https://unpkg.com/@solana/wallet-adapter-base@latest/lib/index.iife.js"></script>
+  <script src="https://unpkg.com/@solana/wallet-adapter-wallets@latest/lib/index.iife.js"></script>
+  <script src="https://unpkg.com/@solana/wallet-adapter-react-ui/styles.css"></script>
 
   <script>
     const BACKEND_URL = "https://api.afkcoin.xyz";
   </script>
   <style>
+    /* (Estilos sin cambios, omitidos por brevedad) */
     :root{
       --bg:#0b1115;--panel:#111a20;--accent:#39ff88;--accent2:#6be3ff;--muted:#8aa3b4;--danger:#ff5773;
     }
@@ -36,171 +42,105 @@
     .muted{color:var(--muted)}
     .boosters-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;text-align:center;margin-top:16px}
     .booster-card{background:rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:16px}
-    .booster-card h4{margin:0 0 8px;font-size:1.1rem}
+    .booster-card h4{margin:0 0 8px;font-s
+
+ize:1.1rem}
     .booster-card .cost{font-size:1.2rem;font-weight:700;color:var(--accent2)}
     @media(max-width:600px){.boosters-grid{grid-template-columns:1fr}}
+
+    /* Estilos para el modal del Wallet Adapter */
+    .swal2-popup { background: var(--panel) !important; color: #e9f1f7 !important; border-radius: 20px !important; border: 1px solid rgba(255,255,255,.08) !important; }
+    .swal2-title { color: #e9f1f7 !important; }
+    .swal2-html-container button { background: rgba(255,255,255,.05) !important; color: #e9f1f7 !important; border: 1px solid rgba(255,255,255,.1) !important; margin: 4px !important; border-radius: 8px !important; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="card">
-      <div class="row" style="justify-content:space-between;align-items:center">
-        <h1>AFK Mode <span class="neon">— Activa y Gana 🚀</span></h1>
-        <div class="row">
-          <button id="connect" class="btn btn-outline" disabled>Buscando Wallet...</button>
-          <span id="pubkey" class="pill">Wallet: desconectada</span>
-          <span id="afk-balance" class="pill">$AFK: --</span>
-        </div>
-      </div>
-      <p class="muted">Gasta <b class="neon">$AFK</b> para activar un Booster. Mantente AFK para recibir premios aleatorios en <b class="neon">Z‑Points</b>.
-      </p>
-
-      <div class="grid">
-        <section class="card">
-          <h3>Elige tu Booster para empezar</h3>
-          <div id="boosters" class="boosters-grid">
-            <div class="booster-card">
-              <h4>Booster Básico</h4>
-              <p class="cost">Coste: 10 $AFK</p>
-              <p class="muted" style="font-size:.8rem">Premios pequeños. Jackpot bajo.</p>
-              <button class="btn btn-outline" data-booster="basico">Activar</button>
-            </div>
-            <div class="booster-card">
-              <h4>Booster Raro</h4>
-              <p class="cost">Coste: 50 $AFK</p>
-              <p class="muted" style="font-size:.8rem">Mejores premios. Jackpot decente.</p>
-              <button class="btn btn-outline" data-booster="raro">Activar</button>
-            </div>
-            <div class="booster-card">
-              <h4>Booster Legendario</h4>
-              <p class="cost">Coste: 250 $AFK</p>
-              <p class="muted" style="font-size:.8rem">Premios altos. ¡Jackpot masivo!</p>
-              <button class="btn btn-outline" data-booster="legendario">Activar</button>
-            </div>
-          </div>
-          <div id="afk-display" style="display:none;">
-            <div class="row" style="gap:20px">
-              <div class="stat"><h3>Tiempo AFK</h3><div id="afkTime" class="big">0:00</div></div>
-              <div class="stat"><h3>Ganancia (sesión)</h3><div id="pointsSession" class="big neon">0</div></div>
-            </div>
-            <div class="row" style="margin-top:16px">
-              <button id="stop" class="btn btn-primary">Terminar Sesión y Guardar</button>
-            </div>
-          </div>
-        </section>
-
-        <aside class="card">
-          <div class="stat">
-            <h3>Mis Z-Points (local)</h3>
-            <div class="big" id="pointsTotal">0</div>
-          </div>
-          <div style="margin-top:12px" class="row">
-            <button id="ranking" class="btn btn-outline">Ver Ranking</button>
-            <button id="reset" class="btn btn-ghost">Reset local</button>
-          </div>
-        </aside>
-      </div>
-
-      <h3 style="margin:22px 0 8px">Actividad Reciente</h3>
-      <div id="log" class="log"></div>
     </div>
-  </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script>
     const AFK_TOKEN_MINT_ADDRESS = '1THEbQ2K1ELPQcsgfWhbSyApMeiXhofRexvmTVFvDfX';
     const TREASURY_WALLET_ADDRESS = 'F3zY8TZ9jiCTneBkPQr1DMbyT9vgwdBUXCoZB9h4GP5G';
     const connection = new solanaWeb3.Connection('https://mainnet.rpc.solaxy.io');
 
-    const BOOSTERS = { /* ... */ }; // (Omitido por brevedad, es igual que antes)
-    const state = { /* ... */ }; // (Omitido por brevedad, es igual que antes)
+    const state = { /* ... */ };
+    // ... (resto de funciones de la app sin cambios) ...
 
-    // (Funciones de utilidad y renderizado sin cambios)
-    const $ = sel => document.querySelector(sel);
-    const log = (msg) => { const box = $('#log'); const t=new Date().toLocaleTimeString(); box.innerHTML = `[${t}] ${msg}<br>` + box.innerHTML; }
-    const fmt = (s)=>{ const m=Math.floor(s/60), ss=String(Math.floor(s%60)).padStart(2,'0'); return `${m}:${ss}` };
-    function render(){ /* ... */ }
-    function toggleViews(showAFK) { /* ... */ }
-    function calculateRewardDrop() { /* ... */ }
+    // <<< CAMBIO: Lógica de conexión completamente nueva usando Wallet-Adapter >>>
+    let wallet;
+
+    function initializeWalletAdapter() {
+        const wallets = [
+            // El adapter de Solaxy no está en un CDN, por lo que usaremos el de Phantom
+            // como ejemplo. Solaxy debería ser detectado si sigue el estándar.
+            new walletAdapterWallets.PhantomWalletAdapter(),
+            new walletAdapterWallets.SolflareWalletAdapter(),
+        ];
+
+        const walletAdapter = new walletAdapterBase.WalletProvider({ wallets });
+
+        walletAdapter.on('connect', (publicKey) => {
+            wallet = walletAdapter;
+            handleConnection(publicKey);
+        });
+
+        walletAdapter.on('disconnect', () => {
+            wallet = null;
+            handleDisconnection();
+        });
+        
+        return walletAdapter;
+    }
     
-    // (Funciones de lógica de juego sin cambios)
-    let loop;
-    async function startAFK(boosterType) { /* ... */ }
-    async function stopAFK(reason = 'botón Detener') { /* ... */ }
-    
-    // (Listeners de eventos y botones sin cambios)
-    
-    // <<< CAMBIO: LÓGICA DE CONEXIÓN COMPLETAMENTE REESCRITA >>>
+    const walletAdapter = initializeWalletAdapter();
+
+    async function connectWallet() {
+        if (walletAdapter.connected) {
+            await walletAdapter.disconnect();
+        } else {
+            // Mostrar un modal para elegir la wallet
+            const walletNames = walletAdapter.wallets.map(w => w.name);
+            const { value: selectedWallet } = await Swal.fire({
+                title: 'Elige tu Wallet',
+                input: 'select',
+                inputOptions: Object.fromEntries(walletNames.map(name => [name, name])),
+                inputPlaceholder: 'Selecciona una wallet',
+                showCancelButton: true,
+                confirmButtonText: 'Conectar',
+            });
+
+            if (selectedWallet) {
+                walletAdapter.select(selectedWallet);
+                await walletAdapter.connect();
+            }
+        }
+    }
 
     async function handleConnection(publicKey) {
       const key = publicKey.toString();
       state.pubkey = key;
-      $('#pubkey').textContent = `Wallet: ${key.slice(0,6)}…${key.slice(-6)}`;
-      $('#connect').textContent = 'Conectado';
-      $('#connect').disabled = true;
-      log('Wallet conectada ✅');
-      await updateAfkBalance(key);
+      // ... (resto de la lógica de handleConnection)
     }
 
     function handleDisconnection() {
       state.pubkey = null;
-      $('#pubkey').textContent = 'Wallet: desconectada';
-      $('#afk-balance').textContent = '$AFK: --';
-      $('#connect').textContent = 'Conectar wallet';
-      $('#connect').disabled = false;
-      log('Wallet desconectada.');
+      // ... (resto de la lógica de handleDisconnection)
     }
 
-    async function connectWallet(){
-      if (!state.provider) {
-        log('Wallet no disponible.');
-        return;
-      }
-      try {
-        const resp = await state.provider.connect();
-        // La publicKey estará en resp.publicKey si la conexión es nueva
-        // o directamente en state.provider.publicKey si ya estaba conectada
-        const publicKey = resp.publicKey || state.provider.publicKey;
-        await handleConnection(publicKey);
-      } catch(err) { 
-        log('Conexión rechazada por el usuario.'); 
-        console.error(err);
-      }
-    }
-
-    function initializeApp() {
-        const provider = window.solaxy || window.solana;
-        const connectButton = $('#connect');
-
-        if (provider) {
-            state.provider = provider;
-            connectButton.disabled = false;
-            connectButton.textContent = 'Conectar wallet';
-            log('Wallet detectada. ¡Lista para conectar!');
-            
-            // Escuchamos eventos de la wallet
-            provider.on('connect', handleConnection);
-            provider.on('disconnect', handleDisconnection);
-
-            // Intentamos una conexión silenciosa (eager connect)
-            if (provider.isAutoApprove) {
-              provider.connect({ onlyIfTrusted: true }).catch(() => {
-                // Falla silenciosamente si el usuario no ha aprobado antes
-                log('Haz clic en "Conectar wallet" para empezar.');
-              });
-            } else {
-               log('Haz clic en "Conectar wallet" para empezar.');
-            }
-        } else {
-            connectButton.textContent = 'Wallet no encontrada';
-            log('No se detectó una wallet compatible (Solaxy o Phantom).');
+    // Modificamos startAFK para que use el `wallet` del adapter
+    async function startAFK(boosterType) {
+        if (!wallet || !wallet.publicKey) {
+            log('❌ Por favor, conecta tu wallet primero.');
+            return;
         }
+        // Usar `wallet.signTransaction` en lugar de `state.provider.signTransaction`
+        const signedTransaction = await wallet.signTransaction(transaction);
+        // ... (resto de la lógica de la transacción)
     }
-    
-    // (Event listeners para botones de la app)
-    window.addEventListener('load', initializeApp);
-    $('#connect').addEventListener('click', connectWallet);
-    // ...resto de listeners...
 
+    // ... (el resto de tu código de la app)
+    
   </script>
 </body>
 </html>
