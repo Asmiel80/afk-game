@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>AFK Mode — Earn while you’re AFK 💤</title>
   <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
-  <script src="https://unpkg.com/@solana/spl-token@latest/lib/index.iife.js"></script>
+  <script src="https://unpkg.com/spl-token@0.3.11/lib/index.iife.js"></script>
 
   <script>
     const BACKEND_URL = "https://api.afkcoin.xyz";
@@ -134,13 +134,13 @@
       try {
         const res = await fetch(`${BACKEND_URL}/points/${pubkey}`);
         const data = await res.json();
-        if (data.ok && data.points > state.totalPoints) { // Solo actualizamos si el servidor tiene más puntos
-          log(`Puntuación del servidor (${data.points}) es mayor que la local (${state.totalPoints}). Sincronizando.`);
+        if (data.ok && data.points > state.totalPoints) {
+          log(`Puntuación del servidor (${data.points}) es mayor. Sincronizando.`);
           state.totalPoints = data.points;
           localStorage.setItem('afk_total_points', state.totalPoints);
           render();
         } else {
-          log('La puntuación local está actualizada. No se necesita sincronizar.');
+          log('La puntuación local está actualizada.');
         }
       } catch (err) {
         log('❌ No se pudo conectar con el servidor para cargar la puntuación.');
@@ -218,19 +218,19 @@
       state.running = false;
       
       const gained = Math.floor(state.sessionPoints);
-      const boosterCost = BOOSTERS[state.activeBooster].cost;
-      const netChange = gained - boosterCost;
-
-      // Actualizamos el total local ANTES de guardar
-      state.totalPoints += gained; 
+      // <<< CAMBIO: Se recalcula el total local ANTES de hacer nada más >>>
+      state.totalPoints += gained;
       localStorage.setItem('afk_total_points', state.totalPoints);
       log(`Sesión terminada. Ganaste ${gained} Z‑Points.`);
       toggleViews(false);
 
       if (state.pubkey) {
+        // <<< CAMBIO: Se calcula el beneficio NETO para enviarlo al servidor >>>
+        const boosterCost = BOOSTERS[state.activeBooster].cost;
+        const netChange = gained - boosterCost;
+        
         log(`Sincronizando beneficio neto (${netChange}) con el ranking...`);
         try {
-          // <<< CAMBIO: Enviamos el beneficio NETO al servidor >>>
           await fetch(`${BACKEND_URL}/savePoints`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
