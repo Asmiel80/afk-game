@@ -110,7 +110,8 @@
   <script>
     const state = {
       provider: null, running:false, afkStart: null, secondsAFK: 0, sessionPoints: 0,
-      totalPoints: Number(localStorage.getItem('afk_total_points')||500),
+      // <<< CAMBIO: El valor inicial por defecto ahora es 0 en lugar de 500 >>>
+      totalPoints: Number(localStorage.getItem('afk_total_points')||0),
       pubkey: null, activeBooster: null
     };
 
@@ -124,7 +125,6 @@
       $('#afkTime').textContent = fmt(state.secondsAFK);
       document.querySelectorAll('.booster-card button').forEach(btn => {
         const booster = BOOSTERS[btn.dataset.booster];
-        // <<< CAMBIO: Los botones se desactivan si la wallet no está conectada >>>
         btn.disabled = !state.pubkey || state.totalPoints < booster.cost || state.running;
       });
     }
@@ -143,20 +143,37 @@
       }
     }
 
+    // <<< CAMBIO: La función ahora detecta wallets nuevas y les da 100 puntos >>>
     async function loadPointsFromServer(pubkey) {
       log('Buscando puntuación guardada en el servidor...');
       try {
         const res = await fetch(`${BACKEND_URL}/points/${pubkey}`);
+        
+        // Si la respuesta no es OK (ej. 404 Not Found), asumimos que es un usuario nuevo.
+        if (!res.ok) {
+          log('Wallet nueva detectada. ¡Bienvenido!');
+          log('🎁 Recibes 100 Z-Points de bienvenida.');
+          state.totalPoints = 100;
+          await savePointsToServer(); // Guardamos los puntos de bienvenida en el servidor
+          return;
+        }
+
         const data = await res.json();
-        if (data.ok) {
+        // Si la respuesta es OK pero no contiene puntos, también es un usuario nuevo.
+        if (data.ok && typeof data.points !== 'undefined') {
           log(`Puntuación del servidor: ${data.points}. Sincronizando.`);
           state.totalPoints = data.points;
-          localStorage.setItem('afk_total_points', state.totalPoints);
+        } else {
+          log('No se encontraron puntos para esta wallet. ¡Bienvenido!');
+          log('🎁 Recibes 100 Z-Points de bienvenida.');
+          state.totalPoints = 100;
+          await savePointsToServer();
         }
       } catch (err) {
-        log('❌ No se pudo conectar con el servidor para cargar la puntuación.');
+        log('❌ No se pudo conectar con el servidor para cargar la puntuación. Se usarán los puntos locales.');
       } finally {
-        render(); // <<< CAMBIO: Nos aseguramos de renderizar siempre después de cargar >>>
+        localStorage.setItem('afk_total_points', state.totalPoints);
+        render();
       }
     }
 
@@ -202,7 +219,6 @@
     let loop;
     async function startAFK(boosterType) {
       const booster = BOOSTERS[boosterType];
-      // La comprobación !state.pubkey es redundante porque el botón está desactivado, pero es una buena práctica
       if (!state.pubkey || state.running || state.totalPoints < booster.cost) {
         log('No se puede iniciar. Conecta la wallet y asegúrate de tener suficientes puntos.');
         return;
