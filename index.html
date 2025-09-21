@@ -129,18 +129,30 @@
       });
     }
 
+    async function savePointsToServer() {
+      if (!state.pubkey) return; // No podemos guardar si no hay wallet conectada
+      try {
+        await fetch(`${BACKEND_URL}/savePoints`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pubkey: state.pubkey, points: state.totalPoints })
+        });
+        log('Sincronización con el servidor completada.');
+      } catch (err) { 
+        log('❌ No se pudo sincronizar con el ranking.'); 
+      }
+    }
+
     async function loadPointsFromServer(pubkey) {
       log('Buscando puntuación guardada en el servidor...');
       try {
         const res = await fetch(`${BACKEND_URL}/points/${pubkey}`);
         const data = await res.json();
-        if (data.ok && data.points > state.totalPoints) {
-          log(`Puntuación del servidor (${data.points}) es mayor. Sincronizando.`);
+        if (data.ok) {
+          log(`Puntuación del servidor: ${data.points}. Sincronizando.`);
           state.totalPoints = data.points;
           localStorage.setItem('afk_total_points', state.totalPoints);
           render();
-        } else {
-          log('La puntuación local está actualizada.');
         }
       } catch (err) {
         log('❌ No se pudo conectar con el servidor para cargar la puntuación.');
@@ -187,15 +199,19 @@
     }
 
     let loop;
-    function startAFK(boosterType) {
+    async function startAFK(boosterType) {
       const booster = BOOSTERS[boosterType];
       if (state.running || state.totalPoints < booster.cost) {
         log('No tienes suficientes Z-Points para este booster.');
         return;
       }
       state.totalPoints -= booster.cost;
-      localStorage.setItem('afk_total_points', state.totalPoints); // Guardamos el nuevo total tras el gasto
-      log(`Gastaste ${booster.cost} Z-Points para activar el Booster ${boosterType}. ¡Suerte!`);
+      localStorage.setItem('afk_total_points', state.totalPoints);
+      log(`Gastaste ${booster.cost} Z-Points.`);
+      
+      // <<< CAMBIO: Guardamos en el servidor justo después de gastar >>>
+      await savePointsToServer();
+      
       state.running = true;
       state.activeBooster = boosterType;
       state.afkStart = Date.now();
@@ -219,29 +235,14 @@
       state.running = false;
       
       const gained = Math.floor(state.sessionPoints);
-      
-      // <<< CORRECCIÓN DEFINITIVA >>>
-      // Primero, calculamos el nuevo total local correcto
       state.totalPoints += gained;
       localStorage.setItem('afk_total_points', state.totalPoints);
       log(`Sesión terminada. Ganaste ${gained} Z‑Points. Tu nuevo total es ${state.totalPoints}.`);
       toggleViews(false);
 
-      if (state.pubkey) {
-        // Segundo, calculamos el cambio neto para enviar al servidor
-        const boosterCost = BOOSTERS[state.activeBooster].cost;
-        const netChange = gained - boosterCost;
-        
-        log(`Sincronizando beneficio neto (${netChange}) con el ranking...`);
-        try {
-          await fetch(`${BACKEND_URL}/savePoints`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pubkey: state.pubkey, points: netChange })
-          });
-          log('✅ Puntuación guardada en el ranking.');
-        } catch (err) { log('❌ No se pudo sincronizar con el ranking.'); }
-      }
+      // <<< CAMBIO: Guardamos en el servidor al terminar la sesión >>>
+      await savePointsToServer();
+      
       render();
     }
     
