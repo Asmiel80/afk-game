@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -46,63 +46,63 @@
   <div class="wrap">
     <div class="card">
       <div class="row" style="justify-content:space-between;align-items:center">
-        <h1>AFK Mode <span class="neon">— Acumula y Gana 🚀</span></h1>
+        <h1>AFK Mode <span class="neon">— Accumulate and Win 🚀</span></h1>
         <div class="row">
-          <button id="connect" class="btn btn-outline">Conectar Wallet para Jugar</button>
-          <span id="pubkey" class="pill">Wallet: desconectada</span>
+          <button id="connect" class="btn btn-outline">Connect Wallet to Play</button>
+          <span id="pubkey" class="pill">Wallet: disconnected</span>
         </div>
       </div>
-      <p class="muted">Conecta tu wallet para activar los Boosters con tus <b class="neon">Z‑Points</b> y guardar tu puntuación en el ranking global.</p>
+      <p class="muted">Connect your wallet to activate Boosters with your <b class="neon">Z‑Points</b> and save your score to the global ranking.</p>
 
       <div class="grid">
         <section class="card">
-          <h3>Elige tu Booster para empezar</h3>
+          <h3>Choose your Booster to start</h3>
           <div id="boosters" class="boosters-grid">
             <div class="booster-card">
-              <h4>Básico</h4>
-              <p class="cost">Coste: 100 Z-Points</p>
-              <p class="muted" style="font-size:.8rem">Premios pequeños. Jackpot bajo.</p>
-              <button class="btn btn-outline" data-booster="basico">Activar</button>
+              <h4>Basic</h4>
+              <p class="cost">Cost: 100 Z-Points</p>
+              <p class="muted" style="font-size:.8rem">Small prizes. Low Jackpot.</p>
+              <button class="btn btn-outline" data-booster="basic">Activate</button>
             </div>
             <div class="booster-card">
-              <h4>Raro</h4>
-              <p class="cost">Coste: 500 Z-Points</p>
-              <p class="muted" style="font-size:.8rem">Mejores premios. Jackpot decente.</p>
-              <button class="btn btn-outline" data-booster="raro">Activar</button>
+              <h4>Rare</h4>
+              <p class="cost">Cost: 500 Z-Points</p>
+              <p class="muted" style="font-size:.8rem">Better prizes. Decent Jackpot.</p>
+              <button class="btn btn-outline" data-booster="rare">Activate</button>
             </div>
             <div class="booster-card">
-              <h4>Legendario</h4>
-              <p class="cost">Coste: 2500 Z-Points</p>
-              <p class="muted" style="font-size:.8rem">Premios altos. ¡Jackpot masivo!</p>
-              <button class="btn btn-outline" data-booster="legendario">Activar</button>
+              <h4>Legendary</h4>
+              <p class="cost">Cost: 2500 Z-Points</p>
+              <p class="muted" style="font-size:.8rem">High prizes. Massive Jackpot!</p>
+              <button class="btn btn-outline" data-booster="legendary">Activate</button>
             </div>
           </div>
           <div id="afk-display" style="display:none;">
             <div class="row" style="gap:20px">
-              <div class="stat"><h3>Tiempo AFK</h3><div id="afkTime" class="big">0:00</div></div>
-              <div class="stat"><h3>Ganancia (sesión)</h3><div id="pointsSession" class="big neon">0</div></div>
+              <div class="stat"><h3>AFK Time</h3><div id="afkTime" class="big">0:00</div></div>
+              <div class="stat"><h3>Earnings (session)</h3><div id="pointsSession" class="big neon">0</div></div>
             </div>
             <div class="row" style="margin-top:16px">
-              <button id="stop" class="btn btn-primary">Terminar Sesión</button>
+              <button id="stop" class="btn btn-primary">End Session</button>
             </div>
           </div>
         </section>
 
         <aside class="card">
           <div class="stat">
-            <h3>Mis Z-Points</h3>
+            <h3>My Z-Points</h3>
             <div class="big" id="pointsTotal">0</div>
           </div>
            <div style="margin-top:16px;">
-            <button id="buyAfk" class="btn btn-primary" style="width:100%;">Comprar el Token $AFK</button>
+            <button id="buyAfk" class="btn btn-primary" style="width:100%;">Buy $AFK Token</button>
           </div>
           <div style="margin-top:12px" class="row">
-            <button id="ranking" class="btn btn-outline">Ver Ranking</button>
+            <button id="ranking" class="btn btn-outline">View Ranking</button>
           </div>
         </aside>
       </div>
 
-      <h3 style="margin:22px 0 8px">Actividad Reciente</h3>
+      <h3 style="margin:22px 0 8px">Recent Activity</h3>
       <div id="log" class="log"></div>
     </div>
   </div>
@@ -110,7 +110,6 @@
   <script>
     const state = {
       provider: null, running:false, afkStart: null, secondsAFK: 0, sessionPoints: 0,
-      // <<< CAMBIO: El valor inicial ahora es 0 hasta que se conecte la wallet >>>
       totalPoints: 0,
       pubkey: null, activeBooster: null
     };
@@ -137,20 +136,20 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pubkey: state.pubkey, points: state.totalPoints })
         });
-        log('Sincronización con el servidor completada.');
+        log('Synchronization with the server complete.');
       } catch (err) { 
-        log('❌ No se pudo sincronizar con el ranking.'); 
+        log('❌ Could not sync with the ranking.'); 
       }
     }
 
     async function loadPointsFromServer(pubkey) {
-      log('Buscando puntuación guardada en el servidor...');
+      log('Looking for saved score on the server...');
       try {
         const res = await fetch(`${BACKEND_URL}/points/${pubkey}`);
         
         if (!res.ok) {
-          log('Wallet nueva detectada. ¡Bienvenido!');
-          log('🎁 Recibes 100 Z-Points de bienvenida.');
+          log('New wallet detected. Welcome!');
+          log('🎁 You receive 100 welcome Z-Points.');
           state.totalPoints = 100;
           await savePointsToServer(); 
           return;
@@ -158,17 +157,16 @@
 
         const data = await res.json();
         if (data.ok && typeof data.points !== 'undefined') {
-          log(`Puntuación del servidor: ${data.points}. Sincronizando.`);
+          log(`Server score: ${data.points}. Syncing.`);
           state.totalPoints = data.points;
         } else {
-          log('No se encontraron puntos para esta wallet. ¡Bienvenido!');
-          log('🎁 Recibes 100 Z-Points de bienvenida.');
+          log('No points found for this wallet. Welcome!');
+          log('🎁 You receive 100 welcome Z-Points.');
           state.totalPoints = 100;
           await savePointsToServer();
         }
       } catch (err) {
-        log('❌ No se pudo conectar con el servidor. Se usarán los puntos locales como respaldo.');
-        // <<< CAMBIO: Si el servidor falla, se cargan los puntos desde localStorage >>>
+        log('❌ Could not connect to the server. Using local points as a backup.');
         state.totalPoints = Number(localStorage.getItem('afk_total_points') || 0);
       } finally {
         localStorage.setItem('afk_total_points', state.totalPoints);
@@ -179,7 +177,7 @@
     async function connectWallet() {
       const provider = window.solana;
       if (!provider || !provider.isPhantom) {
-        log('❌ Wallet Phantom no detectada. Por favor, instálala.');
+        log('❌ Phantom Wallet not detected. Please install it.');
         return;
       }
       try {
@@ -187,18 +185,18 @@
         const key = resp.publicKey.toString();
         state.pubkey = key;
         $('#pubkey').textContent = `Wallet: ${key.slice(0,6)}…${key.slice(-6)}`;
-        log('Wallet conectada.');
+        log('Wallet connected.');
         await loadPointsFromServer(key);
       } catch(err) { 
-        log('❌ Conexión rechazada por el usuario.'); 
+        log('❌ Connection rejected by user.'); 
         console.error(err);
       }
     }
 
     const BOOSTERS = {
-      basico: { cost: 100, rewards: { jackpot: 1000, high: 200, mid: 50, low: 10 }, probs: { jackpot: 0.01, high: 0.05, mid: 0.2 } },
-      raro: { cost: 500, rewards: { jackpot: 10000, high: 1000, mid: 250, low: 50 }, probs: { jackpot: 0.02, high: 0.08, mid: 0.25 } },
-      legendario: { cost: 2500, rewards: { jackpot: 250000, high: 5000, mid: 1000, low: 200 }, probs: { jackpot: 0.005, high: 0.1, mid: 0.3 } },
+      basic: { cost: 100, rewards: { jackpot: 1000, high: 200, mid: 50, low: 10 }, probs: { jackpot: 0.01, high: 0.05, mid: 0.2 } },
+      rare: { cost: 500, rewards: { jackpot: 10000, high: 1000, mid: 250, low: 50 }, probs: { jackpot: 0.02, high: 0.08, mid: 0.25 } },
+      legendary: { cost: 2500, rewards: { jackpot: 250000, high: 5000, mid: 1000, low: 200 }, probs: { jackpot: 0.005, high: 0.1, mid: 0.3 } },
     };
     
     function toggleViews(showAFK) {
@@ -209,9 +207,9 @@
     function calculateRewardDrop() {
       const booster = BOOSTERS[state.activeBooster];
       const roll = Math.random();
-      if (roll < booster.probs.jackpot) { return { points: booster.rewards.jackpot, msg: `🚀 ¡¡¡JACKPOT!!! +${booster.rewards.jackpot} Z-Points` }; }
-      else if (roll < booster.probs.jackpot + booster.probs.high) { return { points: booster.rewards.high, msg: `💎 ¡DROP ÉPICO! +${booster.rewards.high} Z-Points` }; }
-      else if (roll < booster.probs.jackpot + booster.probs.high + booster.probs.mid) { return { points: booster.rewards.mid, msg: `🔥 ¡Premio bueno! +${booster.rewards.mid} Z-Points` }; }
+      if (roll < booster.probs.jackpot) { return { points: booster.rewards.jackpot, msg: `🚀 JACKPOT!!! +${booster.rewards.jackpot} Z-Points` }; }
+      else if (roll < booster.probs.jackpot + booster.probs.high) { return { points: booster.rewards.high, msg: `💎 EPIC DROP! +${booster.rewards.high} Z-Points` }; }
+      else if (roll < booster.probs.jackpot + booster.probs.high + booster.probs.mid) { return { points: booster.rewards.mid, msg: `🔥 Nice prize! +${booster.rewards.mid} Z-Points` }; }
       else { return Math.random() < 0.4 ? { points: 0 } : { points: booster.rewards.low, msg: `+${booster.rewards.low} Z-Points` }; }
     }
 
@@ -219,12 +217,12 @@
     async function startAFK(boosterType) {
       const booster = BOOSTERS[boosterType];
       if (!state.pubkey || state.running || state.totalPoints < booster.cost) {
-        log('No se puede iniciar. Conecta la wallet y asegúrate de tener suficientes puntos.');
+        log('Cannot start. Connect your wallet and make sure you have enough points.');
         return;
       }
       state.totalPoints -= booster.cost;
       localStorage.setItem('afk_total_points', state.totalPoints);
-      log(`Gastaste ${booster.cost} Z-Points.`);
+      log(`You spent ${booster.cost} Z-Points.`);
       
       await savePointsToServer();
       
@@ -234,7 +232,7 @@
       state.secondsAFK = 0;
       state.sessionPoints = 0;
       toggleViews(true);
-      log('Modo de Recompensas iniciado.');
+      log('Reward Mode started.');
       loop = setInterval(() => {
         state.secondsAFK = (Date.now() - state.afkStart) / 1000;
         if (Math.floor(state.secondsAFK) > 0 && Math.floor(state.secondsAFK) % 3 === 0) {
@@ -245,7 +243,7 @@
       }, 1000);
     }
 
-    async function stopAFK(reason = 'botón Detener') {
+    async function stopAFK(reason = 'Stop button') {
       if(!state.running) return;
       clearInterval(loop);
       state.running = false;
@@ -253,7 +251,7 @@
       const gained = Math.floor(state.sessionPoints);
       state.totalPoints += gained;
       localStorage.setItem('afk_total_points', state.totalPoints);
-      log(`Sesión terminada. Ganaste ${gained} Z‑Points. Tu nuevo total es ${state.totalPoints}.`);
+      log(`Session ended. You earned ${gained} Z‑Points. Your new total is ${state.totalPoints}.`);
       toggleViews(false);
       
       await savePointsToServer();
@@ -261,17 +259,17 @@
     }
     
     async function getRanking(){
-      log('Consultando el ranking...');
+      log('Fetching the ranking...');
       try {
         const res = await fetch(`${BACKEND_URL}/ranking`);
         const data = await res.json();
         if(data.ok && data.ranking){
-          log('🏆 Ranking Global:');
+          log('🏆 Global Ranking:');
           data.ranking.forEach((p, i) => {
-            log(`${i+1}. ${p.pubkey.slice(0,4)}...${p.pubkey.slice(-4)} — ${p.points} puntos`);
+            log(`${i+1}. ${p.pubkey.slice(0,4)}...${p.pubkey.slice(-4)} — ${p.points} points`);
           });
-        } else { log(`❌ Error al cargar el ranking.`); }
-      } catch(err) { log('❌ No se pudo conectar con el servidor del ranking.'); }
+        } else { log(`❌ Error loading the ranking.`); }
+      } catch(err) { log('❌ Could not connect to the ranking server.'); }
     }
     
     document.querySelectorAll('.booster-card button').forEach(btn => {
@@ -281,11 +279,11 @@
     $('#connect').addEventListener('click', connectWallet);
     $('#ranking').addEventListener('click', getRanking);
     $('#buyAfk').addEventListener('click', () => {
-      log('Abriendo Igniter para comprar $AFK...');
+      log('Opening Igniter to buy $AFK...');
       window.open(IGNITER_URL, '_blank');
     });
 
-    log('Bienvenido. Conecta tu wallet para empezar a jugar.');
+    log('Welcome. Connect your wallet to start playing.');
     render();
   </script>
 </body>
