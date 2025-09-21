@@ -122,6 +122,9 @@
       totalPoints: Number(localStorage.getItem('afk_total_points')||0),
       pubkey: null, activeBooster: null
     };
+    
+    // <<< CAMBIO: Añadimos una variable de "cerrojo" >>>
+    let isConnecting = false;
 
     const $ = sel => document.querySelector(sel);
     const log = (msg) => { const box = $('#log'); const t=new Date().toLocaleTimeString(); box.innerHTML = `[${t}] ${msg}<br>` + box.innerHTML; }
@@ -241,28 +244,34 @@
         log('No se encontró balance de $AFK para esta wallet.');
       }
     }
-
+    
+    // <<< CAMBIO: Lógica de conexión completamente reescrita >>>
     async function connectWallet(){
       const connectButton = $('#connect');
-      if(!state.provider) {
+      if (!state.provider) {
         log('Wallet no disponible.');
         return;
       }
-      // <<< CAMBIO: Deshabilitamos el botón para evitar dobles clics >>>
+      // Ponemos el cerrojo para evitar dobles clics o llamadas automáticas
+      if (isConnecting) return;
+      isConnecting = true;
+
       connectButton.disabled = true;
       connectButton.textContent = 'Conectando...';
-      try{
+      
+      try {
         await state.provider.connect();
         const key = state.provider.publicKey.toString();
         state.pubkey = key;
         $('#pubkey').textContent = `Wallet: ${key.slice(0,6)}…${key.slice(-6)}`;
         log('Wallet conectada ✅');
         await updateAfkBalance(key);
-      }catch(err){ 
+      } catch(err) { 
         log('Error al conectar wallet.'); 
         console.error(err);
       } finally {
-        // <<< CAMBIO: Volvemos a habilitar el botón al terminar >>>
+        // Quitamos el cerrojo y reactivamos el botón
+        isConnecting = false;
         connectButton.disabled = false;
         connectButton.textContent = 'Conectar wallet';
       }
