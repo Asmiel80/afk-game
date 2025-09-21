@@ -194,6 +194,7 @@
         return;
       }
       state.totalPoints -= booster.cost;
+      localStorage.setItem('afk_total_points', state.totalPoints); // Guardamos el nuevo total tras el gasto
       log(`Gastaste ${booster.cost} Z-Points para activar el Booster ${boosterType}. ¡Suerte!`);
       state.running = true;
       state.activeBooster = boosterType;
@@ -218,14 +219,16 @@
       state.running = false;
       
       const gained = Math.floor(state.sessionPoints);
-      // <<< CAMBIO: Se recalcula el total local ANTES de hacer nada más >>>
+      
+      // <<< CORRECCIÓN DEFINITIVA >>>
+      // Primero, calculamos el nuevo total local correcto
       state.totalPoints += gained;
       localStorage.setItem('afk_total_points', state.totalPoints);
-      log(`Sesión terminada. Ganaste ${gained} Z‑Points.`);
+      log(`Sesión terminada. Ganaste ${gained} Z‑Points. Tu nuevo total es ${state.totalPoints}.`);
       toggleViews(false);
 
       if (state.pubkey) {
-        // <<< CAMBIO: Se calcula el beneficio NETO para enviarlo al servidor >>>
+        // Segundo, calculamos el cambio neto para enviar al servidor
         const boosterCost = BOOSTERS[state.activeBooster].cost;
         const netChange = gained - boosterCost;
         
