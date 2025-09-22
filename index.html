@@ -289,16 +289,16 @@
     // --- LÓGICA DEL RANKING ---
     function renderRanking(rankingData) {
         const list = $('#ranking-list');
-        if (!rankingData || rankingData.length === 0) {
-            list.innerHTML = '<li>Aún no hay datos en el ranking.</li>';
+        
+        // Filtramos la wallet del admin antes de cualquier otra cosa.
+        const filteredRanking = rankingData ? rankingData.filter(player => player.pubkey !== ADMIN_PUBKEY) : [];
+
+        if (filteredRanking.length === 0) {
+            list.innerHTML = '<li>Aún no hay nadie en el ranking. ¡Sé el primero! 🏆</li>';
             return;
         }
 
         const topEmojis = ['🥇', '🥈', '🥉'];
-        
-        // Filtramos la wallet del admin antes de mostrar los datos.
-        const filteredRanking = rankingData.filter(player => player.pubkey !== ADMIN_PUBKEY);
-
         list.innerHTML = filteredRanking.slice(0, 10).map((player, index) => {
             const key = player.pubkey;
             const truncatedKey = `${key.slice(0, 4)}…${key.slice(-4)}`;

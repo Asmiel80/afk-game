@@ -7,7 +7,6 @@ import { open } from 'sqlite';
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// --- MODIFICACIÓN CLAVE ---
 const ADMIN_PUBKEY = process.env.ADMIN_PUBKEY || '';
 
 const allowed = (process.env.ALLOWED_ORIGINS || '').split(',').map(s=>s.trim()).filter(Boolean);
@@ -41,9 +40,10 @@ async function setPoints(pubkey, newTotal) {
   }
 }
 
-// --- FUNCIÓN GET_RANKING MODIFICADA ---
-async function getRanking(limit=20){
-  return db.all('SELECT pubkey, points FROM players WHERE pubkey != ? ORDER BY points DESC LIMIT ?', [ADMIN_PUBKEY, limit]);
+async function getRanking(limit = 20) {
+  // Aseguramos que si ADMIN_PUBKEY no está definido, no rompa la consulta.
+  const admin = ADMIN_PUBKEY || '';
+  return db.all('SELECT pubkey, points FROM players WHERE pubkey != ? ORDER BY points DESC LIMIT ?', [admin, limit]);
 }
 
 async function getPoints(pubkey){
