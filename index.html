@@ -28,6 +28,7 @@
     .btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-primary { background: var(--accent); color: #041417; border-color: transparent; }
+    .btn-danger { background: var(--danger); color: #1f0a0a; border-color: transparent; }
     .btn-play { padding: 16px; font-size: 20px; margin-top: 12px; }
     .kpi { display: flex; flex-direction: column; gap: 4px; padding: 14px; background: #0e171e; border: 1px dashed var(--border); border-radius: 14px; text-align: center; }
     .kpi .v { font-size: 32px; font-weight: 800; color: var(--gold); }
@@ -38,7 +39,6 @@
       background: #091218; border: 1px solid var(--border); border-radius: 14px; padding: 12px; height: 250px; overflow: auto; white-space: pre-wrap;
       font-size: 13px; line-height: 1.6;
     }
-    /* */
     #ranking-list { padding-left: 20px; margin: 0; list-style-type: none; }
     #ranking-list li { margin-bottom: 8px; font-size: 15px; display: flex; align-items: center; gap: 10px; }
     #ranking-list li span { font-weight: 600; color: var(--muted); width: 25px; text-align: right; }
@@ -50,6 +50,11 @@
     <div class="sub">Compra $AFK para acumular tiempo de juego. ¡Mientras más compres, más durará la partida y mejores serán los premios!</div>
 
     <div class="grid">
+      <div class="card" id="admin-panel" style="display: none;">
+        <div class="section-title">⚙️ Panel de Administrador</div>
+        <button id="resetWeeklyBtn" class="btn btn-danger">Resetear Ranking Semanal</button>
+      </div>
+
       <div class="card">
         <div class="section-title">Panel de Control</div>
         <div class="row">
@@ -99,18 +104,19 @@
 
 <script>
     // ========= CONFIGURACIÓN =========
-    const BACKEND_URL = "https://api.afkcoin.xyz"; // Para guardar el puntaje
+    const BACKEND_URL = "https://api.afkcoin.xyz";
     const IGNITER_URL = 'https://igniter.solaxy.io/token/?mint=1THEbQ2K1ELPQcsgfWhbSyApMeiXhofRexvmTVFvDfX';
     
-    // URL de tu Worker de Cloudflare para detectar compras
+    // IMPORTANTE: Pon aquí la dirección de tu billetera de administrador
+    const ADMIN_PUBKEY = "REEMPLAZA_ESTO_CON_TU_DIRECCION_DE_WALLET_ADMIN";
+
     const WORKER_BASE = "https://afk-balance-worker.afkcoin.workers.dev";
     const AFK_DETECT_URL = `${WORKER_BASE}/afkRecentBuy`;
     const DETECT_INTERVAL_MS = 8000;
     const DETECT_WINDOW_MIN = 30;
 
-    // AÑADIDO: Configuración del Ranking
-    const RANKING_URL = `${BACKEND_URL}/ranking`; // Asumimos que este endpoint existe
-    const RANKING_REFRESH_MS = 30000; // Refrescar cada 30 segundos
+    const RANKING_URL = `${BACKEND_URL}/ranking`;
+    const RANKING_REFRESH_MS = 30000;
 
     // --- Definición de Tiers y Recompensas ---
     const TIERS = {
@@ -275,12 +281,12 @@
         if (state.pubkey) {
             startPurchaseDetector();
             await savePointsToServer();
-            await fetchRanking(); // AÑADIDO: Actualizar el ranking al terminar
+            await fetchRanking();
         }
         render();
     }
 
-    // --- LÓGICA DEL RANKING (AÑADIDO) ---
+    // --- LÓGICA DEL RANKING ---
     function renderRanking(rankingData) {
         const list = $('#ranking-list');
         if (!rankingData || rankingData.length === 0) {
@@ -289,7 +295,11 @@
         }
 
         const topEmojis = ['🥇', '🥈', '🥉'];
-        list.innerHTML = rankingData.slice(0, 10).map((player, index) => {
+        
+        // Filtramos la wallet del admin antes de mostrar los datos.
+        const filteredRanking = rankingData.filter(player => player.pubkey !== ADMIN_PUBKEY);
+
+        list.innerHTML = filteredRanking.slice(0, 10).map((player, index) => {
             const key = player.pubkey;
             const truncatedKey = `${key.slice(0, 4)}…${key.slice(-4)}`;
             const emoji = topEmojis[index] || `<span>#${index + 1}</span>`;
@@ -302,7 +312,7 @@
             const res = await fetch(RANKING_URL);
             if (!res.ok) throw new Error(`El servidor respondió con status ${res.status}`);
             const result = await res.json();
-            renderRanking(result.ranking);
+            renderRanking(result);
         } catch (err) {
             log('❌ No se pudo cargar el ranking.');
             console.error("Error fetching ranking:", err);
@@ -323,6 +333,13 @@
             state.pubkey = key;
             $('#pubkey').textContent = `Wallet: ${key.slice(0, 4)}…${key.slice(-4)}`;
             log('✅ Wallet conectada.');
+            
+            if (key === ADMIN_PUBKEY) {
+                log('👋 ¡Hola, Admin! Panel de control activado.');
+                $('#admin-panel').style.display = 'block';
+            } else {
+                $('#admin-panel').style.display = 'none';
+            }
             
             await loadPointsFromServer(key);
             startPurchaseDetector();
@@ -365,6 +382,27 @@
         }
     }
 
+    // --- FUNCIONES DE ADMINISTRADOR ---
+    async function resetWeeklyRanking() {
+      if (!confirm('¿Estás seguro de que quieres resetear los puntos semanales de TODOS los jugadores a cero?')) {
+        return;
+      }
+      log('⚙️ Reseteando ranking semanal...');
+      try {
+        const res = await fetch(`${BACKEND_URL}/resetWeekly`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok && data.ok) {
+          log('✅ Ranking semanal reseteado con éxito.');
+          await fetchRanking();
+        } else {
+          throw new Error(data.error || 'Respuesta no OK del servidor');
+        }
+      } catch (err) {
+        log('❌ Error al resetear el ranking.');
+        console.error('Reset error:', err);
+      }
+    }
+
     // --- INICIALIZACIÓN ---
     $('#connect').addEventListener('click', connectWallet);
     $('#buyAfk').addEventListener('click', () => {
@@ -372,11 +410,11 @@
         window.open(IGNITER_URL, '_blank');
     });
     $('#playButton').addEventListener('click', startAFK);
+    $('#resetWeeklyBtn').addEventListener('click', resetWeeklyRanking);
 
     log('Bienvenido. Conecta tu wallet para empezar.');
     render();
     
-    // AÑADIDO: Carga inicial y refresco periódico del ranking
     fetchRanking();
     setInterval(fetchRanking, RANKING_REFRESH_MS);
 </script>
