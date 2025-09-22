@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -47,67 +47,67 @@
 <body>
   <div class="wrap">
     <div class="title">AFK Mode — Accumulate and Win 🚀</div>
-    <div class="sub">Compra $AFK para acumular tiempo de juego. ¡Mientras más compres, más durará la partida y mejores serán los premios!</div>
+    <div class="sub">Buy $AFK to accumulate game time. The more you buy, the longer the game will last and the better the prizes will be!</div>
 
     <div class="grid">
       <div class="card" id="admin-panel" style="display: none;">
-        <div class="section-title">⚙️ Panel de Administrador</div>
-        <button id="resetWeeklyBtn" class="btn btn-danger">Resetear Ranking Semanal</button>
+        <div class="section-title">⚙️ Admin Panel</div>
+        <button id="resetWeeklyBtn" class="btn btn-danger">Reset Weekly Ranking</button>
       </div>
 
       <div class="card">
-        <div class="section-title">Panel de Control</div>
+        <div class="section-title">Control Panel</div>
         <div class="row">
-          <button id="connect" class="btn">1. Conectar Wallet</button>
-          <button id="buyAfk" class="btn btn-primary">2. Comprar $AFK</button>
+          <button id="connect" class="btn">1. Connect Wallet</button>
+          <button id="buyAfk" class="btn btn-primary">2. Buy $AFK</button>
         </div>
-        <div id="pubkey" class="muted" style="text-align:center; margin-top:12px; font-size:13px;">Wallet no conectada</div>
+        <div id="pubkey" class="muted" style="text-align:center; margin-top:12px; font-size:13px;">Wallet not connected</div>
       </div>
 
       <div class="card" id="game-panel">
         <div id="play-mode">
-          <div class="section-title">Zona de Juego</div>
+          <div class="section-title">Game Zone</div>
           <div class="kpi" style="margin-bottom: 16px;">
-            <div class="muted">Tiempo de Juego Disponible</div>
+            <div class="muted">Available Game Time</div>
             <div id="unclaimedTime" class="v">0:00</div>
           </div>
-          <button id="playButton" class="btn btn-primary btn-play" disabled>JUGAR</button>
+          <button id="playButton" class="btn btn-primary btn-play" disabled>PLAY</button>
         </div>
 
         <div id="afk-display" style="display: none;">
-          <div class="section-title">Sesión de Juego Activa</div>
+          <div class="section-title">Active Game Session</div>
           <div class="kpi-group">
-            <div class="kpi"><div class="muted">Tiempo Restante</div><div id="afkTime" class="v">0:00</div></div>
-            <div class="kpi"><div class="muted">Puntos de la Sesión</div><div id="pointsSession" class="v">0</div></div>
+            <div class="kpi"><div class="muted">Time Remaining</div><div id="afkTime" class="v">0:00</div></div>
+            <div class="kpi"><div class="muted">Session Points</div><div id="pointsSession" class="v">0</div></div>
           </div>
         </div>
       </div>
       
       <div class="card">
-         <div class="section-title">Puntaje Total</div>
+         <div class="section-title">Total Score</div>
          <div class="kpi"><div id="pointsTotal" class="v">0</div></div>
       </div>
 
       <div class="card">
-        <div class="section-title">🏆 Ranking de Jugadores (Top 10)</div>
+        <div class="section-title">🏆 Player Ranking (Top 10)</div>
         <ol id="ranking-list">
-          <li>Cargando ranking...</li>
+          <li>Loading ranking...</li>
         </ol>
       </div>
 
       <div class="card">
-        <div class="section-title">Registro de Actividad</div>
+        <div class="section-title">Activity Log</div>
         <div id="log" class="log"></div>
       </div>
     </div>
   </div>
 
 <script>
-    // ========= CONFIGURACIÓN =========
+    // ========= CONFIGURATION =========
     const BACKEND_URL = "https://api.afkcoin.xyz";
     const IGNITER_URL = 'https://igniter.solaxy.io/token/?mint=1THEbQ2K1ELPQcsgfWhbSyApMeiXhofRexvmTVFvDfX';
     
-    // IMPORTANTE: Pon aquí la dirección de tu billetera de administrador
+    // IMPORTANT: Put your admin wallet address here
     const ADMIN_PUBKEY = "F3zY8TZ9jiCTneBkPQr1DMbyT9vgwdBUXCoZB9h4GP5G";
 
     const WORKER_BASE = "https://afk-balance-worker.afkcoin.workers.dev";
@@ -118,11 +118,11 @@
     const RANKING_URL = `${BACKEND_URL}/ranking`;
     const RANKING_REFRESH_MS = 30000;
 
-    // --- Definición de Tiers y Recompensas ---
+    // --- Tier and Reward Definitions ---
     const TIERS = {
-        legendary: { minAmount: 2500, seconds: 300, name: "Legendario" },
-        rare:      { minAmount: 500,  seconds: 180, name: "Raro" },
-        basic:     { minAmount: 1,    seconds: 60,  name: "Básico" }
+        legendary: { minAmount: 2500, seconds: 300, name: "Legendary" },
+        rare:      { minAmount: 500,  seconds: 180, name: "Rare" },
+        basic:     { minAmount: 1,    seconds: 60,  name: "Basic" }
     };
     const tierPrecedence = ['basic', 'rare', 'legendary'];
     const REWARDS_CONFIG = {
@@ -131,7 +131,7 @@
         legendary: { rewards: { jackpot: 250000, high: 5000, mid: 1000, low: 200 }, probs: { jackpot: 0.005, high: 0.1, mid: 0.3 } },
     };
 
-    // --- Estado de la Aplicación ---
+    // --- Application State ---
     const state = {
         pubkey: null,
         running: false,
@@ -162,7 +162,7 @@
         }
     }
 
-    // --- LÓGICA DE DETECCIÓN DE COMPRA ---
+    // --- PURCHASE DETECTION LOGIC ---
     function alreadyRewarded(sig) { try { return localStorage.getItem(`afk_bonus_${sig}`) === "1"; } catch { return false; } }
     function markRewarded(sig) { try { localStorage.setItem(`afk_bonus_${sig}`, "1"); } catch { } }
 
@@ -177,7 +177,7 @@
 
     async function purchaseDetectionLoop() {
         if (!state.pubkey || state.running) return;
-        log('🔎 Buscando compras de $AFK...');
+        log('🔎 Searching for $AFK purchases...');
         const purchase = await checkRecentPurchase(state.pubkey);
 
         if (purchase && !alreadyRewarded(purchase.signature)) {
@@ -191,11 +191,11 @@
             if(tierId) {
                 const tierInfo = TIERS[tierId];
                 state.unclaimedSeconds += tierInfo.seconds;
-                log(`✅ ¡Compra detectada! Has ganado ${tierInfo.seconds}s de juego (Nivel ${tierInfo.name}).`);
+                log(`✅ Purchase detected! You've earned ${tierInfo.seconds}s of game time (Tier: ${tierInfo.name}).`);
                 
                 if (!state.highestTier || tierPrecedence.indexOf(tierId) > tierPrecedence.indexOf(state.highestTier)) {
                     state.highestTier = tierId;
-                    log(`✨ Tu próximo juego tendrá recompensas de nivel ${tierInfo.name}.`);
+                    log(`✨ Your next game will have ${tierInfo.name} level rewards.`);
                 }
                 render();
             }
@@ -205,18 +205,18 @@
     function startPurchaseDetector() {
         if (state.purchaseDetector) clearInterval(state.purchaseDetector);
         state.purchaseDetector = setInterval(purchaseDetectionLoop, DETECT_INTERVAL_MS);
-        log('Detector de compras activado.');
+        log('Purchase detector activated.');
     }
 
     function stopPurchaseDetector() {
         if (state.purchaseDetector) {
             clearInterval(state.purchaseDetector);
             state.purchaseDetector = null;
-            log('Detector de compras en pausa.');
+            log('Purchase detector paused.');
         }
     }
     
-    // --- LÓGICA DEL JUEGO ---
+    // --- GAME LOGIC ---
     function toggleViews(showAFK) {
         $('#play-mode').style.display = showAFK ? 'none' : 'block';
         $('#afk-display').style.display = showAFK ? 'block' : 'none';
@@ -225,9 +225,9 @@
     function calculateRewardDrop(tier) {
         const config = REWARDS_CONFIG[tier];
         const roll = Math.random();
-        if (roll < config.probs.jackpot) return { points: config.rewards.jackpot, msg: `🚀 ¡¡JACKPOT!! +${config.rewards.jackpot}` };
-        if (roll < config.probs.jackpot + config.probs.high) return { points: config.rewards.high, msg: `💎 ¡DROP ÉPICO! +${config.rewards.high}` };
-        if (roll < config.probs.jackpot + config.probs.high + config.probs.mid) return { points: config.rewards.mid, msg: `🔥 ¡Buen premio! +${config.rewards.mid}` };
+        if (roll < config.probs.jackpot) return { points: config.rewards.jackpot, msg: `🚀 JACKPOT!! +${config.rewards.jackpot}` };
+        if (roll < config.probs.jackpot + config.probs.high) return { points: config.rewards.high, msg: `💎 EPIC DROP! +${config.rewards.high}` };
+        if (roll < config.probs.jackpot + config.probs.high + config.probs.mid) return { points: config.rewards.mid, msg: `🔥 Nice prize! +${config.rewards.mid}` };
         return Math.random() < 0.4 ? { points: 0 } : { points: config.rewards.low, msg: `+${config.rewards.low}` };
     }
 
@@ -245,7 +245,7 @@
         state.sessionPoints = 0;
         
         toggleViews(true);
-        log(`🚀 ¡Juego iniciado! Duración: ${fmt(state.sessionDuration)}, Nivel: ${TIERS[state.sessionTier].name}`);
+        log(`🚀 Game started! Duration: ${fmt(state.sessionDuration)}, Tier: ${TIERS[state.sessionTier].name}`);
         stopPurchaseDetector();
 
         gameLoop = setInterval(() => {
@@ -275,7 +275,7 @@
         state.running = false;
 
         state.totalPoints += state.sessionPoints;
-        log(`🏁 Sesión terminada. Ganaste ${state.sessionPoints} puntos. Total: ${state.totalPoints}`);
+        log(`🏁 Session ended. You earned ${state.sessionPoints} points. Total: ${state.totalPoints}`);
         
         toggleViews(false);
         if (state.pubkey) {
@@ -286,15 +286,15 @@
         render();
     }
 
-    // --- LÓGICA DEL RANKING ---
+    // --- RANKING LOGIC ---
     function renderRanking(rankingData) {
         const list = $('#ranking-list');
         
-        // Filtramos la wallet del admin antes de cualquier otra cosa.
+        // Filter out the admin wallet before doing anything else.
         const filteredRanking = rankingData ? rankingData.filter(player => player.pubkey !== ADMIN_PUBKEY) : [];
 
         if (filteredRanking.length === 0) {
-            list.innerHTML = '<li>Aún no hay nadie en el ranking. ¡Sé el primero! 🏆</li>';
+            list.innerHTML = '<li>No one is on the ranking yet. Be the first! 🏆</li>';
             return;
         }
 
@@ -303,28 +303,28 @@
             const key = player.pubkey;
             const truncatedKey = `${key.slice(0, 4)}…${key.slice(-4)}`;
             const emoji = topEmojis[index] || `<span>#${index + 1}</span>`;
-            return `<li>${emoji} ${truncatedKey} - <strong>${player.points.toFixed(0)} Puntos</strong></li>`;
+            return `<li>${emoji} ${truncatedKey} - <strong>${player.points.toFixed(0)} Points</strong></li>`;
         }).join('');
     }
 
     async function fetchRanking() {
         try {
             const res = await fetch(RANKING_URL);
-            if (!res.ok) throw new Error(`El servidor respondió con status ${res.status}`);
+            if (!res.ok) throw new Error(`Server responded with status ${res.status}`);
             const result = await res.json();
             renderRanking(result);
         } catch (err) {
-            log('❌ No se pudo cargar el ranking.');
+            log('❌ Could not load the ranking.');
             console.error("Error fetching ranking:", err);
-            $('#ranking-list').innerHTML = '<li>Error al cargar el ranking.</li>';
+            $('#ranking-list').innerHTML = '<li>Error loading ranking.</li>';
         }
     }
 
-    // --- CONEXIÓN Y SERVIDOR ---
+    // --- CONNECTION & SERVER ---
     async function connectWallet() {
         const provider = window.solana;
         if (!provider || !provider.isPhantom) {
-            log('❌ Phantom Wallet no detectada. Por favor, instálala.');
+            log('❌ Phantom Wallet not detected. Please install it.');
             return;
         }
         try {
@@ -332,10 +332,10 @@
             const key = resp.publicKey.toString();
             state.pubkey = key;
             $('#pubkey').textContent = `Wallet: ${key.slice(0, 4)}…${key.slice(-4)}`;
-            log('✅ Wallet conectada.');
+            log('✅ Wallet connected.');
             
             if (key === ADMIN_PUBKEY) {
-                log('👋 ¡Hola, Admin! Panel de control activado.');
+                log('👋 Hello, Admin! Control panel activated.');
                 $('#admin-panel').style.display = 'block';
             } else {
                 $('#admin-panel').style.display = 'none';
@@ -345,7 +345,7 @@
             startPurchaseDetector();
             purchaseDetectionLoop();
         } catch (err) {
-            log('❌ Conexión rechazada por el usuario.');
+            log('❌ Connection rejected by user.');
         }
     }
     
@@ -355,13 +355,13 @@
             if (res.ok) {
                 const data = await res.json();
                 state.totalPoints = data.points || 0;
-                log(`Puntaje total cargado: ${state.totalPoints}`);
+                log(`Total score loaded: ${state.totalPoints}`);
             } else {
-                 log('Nueva wallet. ¡Bienvenido!');
+                 log('New wallet. Welcome!');
                  state.totalPoints = 0;
             }
         } catch (err) {
-            log('❌ No se pudo conectar al servidor de puntajes.');
+            log('❌ Could not connect to the score server.');
             state.totalPoints = 0;
         } finally {
             render();
@@ -376,43 +376,43 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ pubkey: state.pubkey, points: state.totalPoints })
             });
-            log('Puntaje guardado en el servidor.');
+            log('Score saved to server.');
         } catch (err) {
-            log('❌ No se pudo sincronizar el puntaje.');
+            log('❌ Could not sync score.');
         }
     }
 
-    // --- FUNCIONES DE ADMINISTRADOR ---
+    // --- ADMIN FUNCTIONS ---
     async function resetWeeklyRanking() {
-      if (!confirm('¿Estás seguro de que quieres resetear los puntos semanales de TODOS los jugadores a cero?')) {
+      if (!confirm('Are you sure you want to reset the weekly points of ALL players to zero?')) {
         return;
       }
-      log('⚙️ Reseteando ranking semanal...');
+      log('⚙️ Resetting weekly ranking...');
       try {
         const res = await fetch(`${BACKEND_URL}/resetWeekly`, { method: 'POST' });
         const data = await res.json();
         if (res.ok && data.ok) {
-          log('✅ Ranking semanal reseteado con éxito.');
+          log('✅ Weekly ranking reset successfully.');
           await fetchRanking();
         } else {
-          throw new Error(data.error || 'Respuesta no OK del servidor');
+          throw new Error(data.error || 'Non-OK response from server');
         }
       } catch (err) {
-        log('❌ Error al resetear el ranking.');
+        log('❌ Error resetting ranking.');
         console.error('Reset error:', err);
       }
     }
 
-    // --- INICIALIZACIÓN ---
+    // --- INITIALIZATION ---
     $('#connect').addEventListener('click', connectWallet);
     $('#buyAfk').addEventListener('click', () => {
-        log('Abriendo exchange para comprar $AFK...');
+        log('Opening exchange to buy $AFK...');
         window.open(IGNITER_URL, '_blank');
     });
     $('#playButton').addEventListener('click', startAFK);
     $('#resetWeeklyBtn').addEventListener('click', resetWeeklyRanking);
 
-    log('Bienvenido. Conecta tu wallet para empezar.');
+    log('Welcome. Connect your wallet to start.');
     render();
     
     fetchRanking();
