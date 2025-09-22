@@ -91,8 +91,12 @@ app.get('/price/:tokenMint', async (req, res) => {
   }
 });
 
+// --- RUTA DEL RANKING MODIFICADA ---
 app.get('/ranking', async (_req,res)=>{
-  try{ res.json({ ok:true, ranking: await getRanking() }); }
+  try{
+    const rankingData = await getRanking();
+    res.json(rankingData); // Enviamos el array directamente
+  }
   catch(e){ res.status(500).json({ ok:false, error:'Ranking error' }); }
 });
 
