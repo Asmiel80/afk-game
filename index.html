@@ -52,7 +52,7 @@
     <div class="grid">
       <div class="card" id="admin-panel" style="display: none;">
         <div class="section-title">⚙️ Admin Panel</div>
-        <button id="resetWeeklyBtn" class="btn btn-danger">Reset Weekly Ranking</button>
+        <button id="resetWeeklyBtn" class="btn btn-danger">Reset All Scores</button>
       </div>
 
       <div class="card">
@@ -90,6 +90,16 @@
 
       <div class="card">
         <div class="section-title">🏆 Player Ranking (Top 10)</div>
+        <div style="font-size: 14px; color: var(--gold); background: #1a1a0b; padding: 12px 15px; border-radius: 8px; text-align: center; margin-bottom: 15px; line-height: 1.6;">
+          <p style="margin: 0 0 10px 0;">
+            <b>Grand Prize!</b> The top 3 players will receive their prizes when the project reaches the 1,000,000 SOLX migration threshold.
+          </p>
+          <div style="display: inline-block; text-align: left;">
+            🥇 <b>1st Place:</b> 50% of the Prize Pool<br>
+            🥈 <b>2nd Place:</b> 30% of the Prize Pool<br>
+            🥉 <b>3rd Place:</b> 20% of the Prize Pool
+          </div>
+        </div>
         <ol id="ranking-list">
           <li>Loading ranking...</li>
         </ol>
@@ -290,7 +300,6 @@
     function renderRanking(rankingData) {
         const list = $('#ranking-list');
         
-        // Filter out the admin wallet before doing anything else.
         const filteredRanking = rankingData ? rankingData.filter(player => player.pubkey !== ADMIN_PUBKEY) : [];
 
         if (filteredRanking.length === 0) {
@@ -383,22 +392,22 @@
     }
 
     // --- ADMIN FUNCTIONS ---
-    async function resetWeeklyRanking() {
-      if (!confirm('Are you sure you want to reset the weekly points of ALL players to zero?')) {
+    async function resetAllScores() {
+      if (!confirm('Are you sure you want to reset the points of ALL players to zero? This will start a new season.')) {
         return;
       }
-      log('⚙️ Resetting weekly ranking...');
+      log('⚙️ Resetting all scores...');
       try {
         const res = await fetch(`${BACKEND_URL}/resetWeekly`, { method: 'POST' });
         const data = await res.json();
         if (res.ok && data.ok) {
-          log('✅ Weekly ranking reset successfully.');
+          log('✅ All scores have been reset.');
           await fetchRanking();
         } else {
           throw new Error(data.error || 'Non-OK response from server');
         }
       } catch (err) {
-        log('❌ Error resetting ranking.');
+        log('❌ Error resetting scores.');
         console.error('Reset error:', err);
       }
     }
@@ -410,7 +419,7 @@
         window.open(IGNITER_URL, '_blank');
     });
     $('#playButton').addEventListener('click', startAFK);
-    $('#resetWeeklyBtn').addEventListener('click', resetWeeklyRanking);
+    $('#resetWeeklyBtn').addEventListener('click', resetAllScores);
 
     log('Welcome. Connect your wallet to start.');
     render();
