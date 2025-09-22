@@ -301,8 +301,8 @@
         try {
             const res = await fetch(RANKING_URL);
             if (!res.ok) throw new Error(`El servidor respondió con status ${res.status}`);
-            const data = await res.json();
-            renderRanking(data);
+            const result = await res.json();
+            renderRanking(result.ranking);
         } catch (err) {
             log('❌ No se pudo cargar el ranking.');
             console.error("Error fetching ranking:", err);
