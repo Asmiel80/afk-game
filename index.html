@@ -69,6 +69,7 @@
         <div id="pubkey" class="muted" style="text-align:center; margin-top:12px; font-size:13px;">Wallet not connected</div>
       </div>
 
+      <!-- IFRAME-BASED JUPITER TERMINAL (robust & simple) -->
       <div id="swap-modal" class="modal-backdrop">
         <div class="modal">
           <iframe id="jup-frame" class="jup-frame" title="Jupiter Terminal"></iframe>
@@ -323,12 +324,20 @@
     function objectToQuery(obj){
       return Object.entries(obj).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
     }
-    async function launchJupiter(){
+    async async function launchJupiter(){
       if (!window.solana || !window.solana.isPhantom){ log("❌ Phantom Wallet not detected."); return; }
       try{ await window.solana.connect(); }catch(e){ log("❌ Connection rejected by user."); return; }
+      const qs = Object.entries(JUP_PARAMS).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
+      const url = `https://terminal.jup.ag/main-v2.html#hideAnnouncement=true&${qs}`;
+      const frame = document.getElementById("jup-frame");
+      frame.src = url;
+      document.getElementById("swap-modal").style.display = "flex";
+      log("🚀 Jupiter opened (banner hidden).");
+      setTimeout(()=>purchaseDetectionLoop(), 4000);
+    }
+      try{ await window.solana.connect(); }catch(e){ log("❌ Connection rejected by user."); return; }
       const qs = objectToQuery(JUP_PARAMS);
-      // *** FINAL CORRECTION IS HERE ***
-      const url = `https://jup.ag/terminal?${qs}`;
+      const url = `https://terminal.jup.ag/main-v2.html#${qs}`;
       document.getElementById("jup-frame").src = url;
       document.getElementById("swap-modal").style.display = "flex";
       log("🚀 Jupiter Terminal opened.");
