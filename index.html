@@ -135,12 +135,12 @@
     const RANKING_URL = `${BACKEND_URL}/ranking`;
     const RANKING_REFRESH_MS = 30000;
 
-    // --- JUPITER CONFIG (TEST) ---
+    // --- JUPITER CONFIG ---
     const JUP_CONFIG = {
-      inputMint: "So11111111111111111111111111111111111111112",   // SOL
-      // Temporary change for testing: using USDC instead of AFK
-      outputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyB7u6T", // USDC Mint Address
-      passThroughWallet: "true"
+      inputMint: "So11111111111111111111111111111111111111112",
+      outputMint: "1THEbQ2K1ELPQcsgfWhbSyApMeiXhofRexvmTVFvDfX",
+      // This is the crucial line to auto-connect the user's wallet
+      passThroughWallet: "true" 
     };
 
     // --- Tier and Reward Definitions ---
