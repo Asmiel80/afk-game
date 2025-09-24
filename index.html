@@ -42,6 +42,11 @@
     #ranking-list { padding-left: 20px; margin: 0; list-style-type: none; }
     #ranking-list li { margin-bottom: 8px; font-size: 15px; display: flex; align-items: center; gap: 10px; }
     #ranking-list li span { font-weight: 600; color: var(--muted); width: 25px; text-align: right; }
+    /* Modal */
+    .modal-backdrop{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:1000;justify-content:center;align-items:center}
+    .modal{position:relative;max-width:520px;width:95%;background:var(--panel);border-radius:18px;padding:10px}
+    .modal-close{position:absolute;top:-15px;right:-15px;background:var(--danger);color:#fff;border:none;border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer}
+    .jup-frame{width:100%;height:560px;border:0;border-radius:12px;overflow:hidden;background:#0b1115}
   </style>
 </head>
 <body>
@@ -64,10 +69,11 @@
         <div id="pubkey" class="muted" style="text-align:center; margin-top:12px; font-size:13px;">Wallet not connected</div>
       </div>
 
-      <div id="swap-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center;">
-        <div style="position: relative; max-width: 420px; width: 95%; background-color: var(--panel); border-radius: 18px; padding: 10px;">
-          <div id="integrated-terminal"></div>
-          <button id="close-swap" style="position: absolute; top: -15px; right: -15px; background: var(--danger); color: white; border: none; border-radius: 50%; width: 30px; height: 30px; font-size: 16px; cursor: pointer;">&times;</button>
+      <!-- IFRAME-BASED JUPITER TERMINAL (robust & simple) -->
+      <div id="swap-modal" class="modal-backdrop">
+        <div class="modal">
+          <iframe id="jup-frame" class="jup-frame" title="Jupiter Terminal"></iframe>
+          <button id="close-swap" class="modal-close">&times;</button>
         </div>
       </div>
 
@@ -129,6 +135,16 @@
     const DETECT_WINDOW_MIN = 30;
     const RANKING_URL = `${BACKEND_URL}/ranking`;
     const RANKING_REFRESH_MS = 30000;
+
+    const JUP_PARAMS = {
+      inputMint: "So11111111111111111111111111111111111111112",   // SOL
+      outputMint: "1THEbQ2K1ELPQcsgfWhbSyApMeiXhofRexvmTVFvDfX", // AFK
+      endpoint: "https://mainnet.helius-rpc.com/?api-key=a8a142fc-9010-49d3-bc40-11c3d5ff66c4",
+      // visual options
+      theme: "dark",
+      preferDirectRoutes: "true",
+      passThroughWallet: "true"
+    };
 
     // --- Tier and Reward Definitions ---
     const TIERS = {
@@ -304,59 +320,32 @@
       } catch (err) { log('❌ Error resetting scores.'); console.error('Reset error:', err); }
     }
 
+    // --- JUPITER: open iframe with passthrough wallet ---
+    function objectToQuery(obj){
+      return Object.entries(obj).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
+    }
+    async function launchJupiter(){
+      if (!window.solana || !window.solana.isPhantom){ log("❌ Phantom Wallet not detected."); return; }
+      try{ await window.solana.connect(); }catch(e){ log("❌ Connection rejected by user."); return; }
+      const qs = objectToQuery(JUP_PARAMS);
+      const url = `https://terminal.jup.ag/main-v2.html#${qs}`;
+      document.getElementById("jup-frame").src = url;
+      document.getElementById("swap-modal").style.display = "flex";
+      log("🚀 Jupiter Terminal opened.");
+      // Small delayed re-check:
+      setTimeout(()=>purchaseDetectionLoop(), 4000);
+    }
+
     // --- INITIALIZATION ---
     $('#connect').addEventListener('click', connectWallet);
     $('#playButton').addEventListener('click', startAFK);
     $('#resetWeeklyBtn').addEventListener('click', resetAllScores);
-    log('Welcome. Connect your wallet to start.');
-    render(); fetchRanking(); setInterval(fetchRanking, RANKING_REFRESH_MS);
-</script>
-
-<script src="https://station.jup.ag/main.js"></script>
-<script>
-    let isJupiterPluginInitialized = false;
-
-    const launchJupiter = () => {
-        $('#swap-modal').style.display = 'flex';
-        
-        if (isJupiterPluginInitialized) {
-            return;
-        }
-        
-        log('🚀 Loading Jupiter Swap Plugin...');
-
-        const interval = setInterval(() => {
-            if (window.Jupiter) {
-                clearInterval(interval);
-                
-                window.Jupiter.init({
-                    // FINAL CORRECTION: Added passThroughWallet parameter
-                    passThroughWallet: window.solana,
-                    endpoint: "https://mainnet.helius-rpc.com/?api-key=a8a142fc-9010-49d3-bc40-11c3d5ff66c4",
-                    mount: document.getElementById("integrated-terminal"),
-                    
-                    formProps: {
-                        initialInputMint: "So11111111111111111111111111111111111111112", // SOL
-                        initialOutputMint: "1THEbQ2K1ELPQcsgfWhbSyApMeiXhofRexvmTVFvDfX", // Your AFK token mint
-                    },
-                    
-                    onSuccess: ({ txid }) => {
-                        log(`✅ Swap successful! TX: ${txid.slice(0, 10)}...`);
-                        setTimeout(purchaseDetectionLoop, 3000);
-                    },
-                });
-                isJupiterPluginInitialized = true;
-                log('✅ Jupiter Plugin loaded.');
-            }
-        }, 100);
-    };
-
-    // Add event listeners for the new modal
-    $('#swapButton').addEventListener('click', launchJupiter);
-    $('#close-swap').addEventListener('click', () => {
-        $('#swap-modal').style.display = 'none';
+    document.getElementById('swapButton').addEventListener('click', launchJupiter);
+    document.getElementById('close-swap').addEventListener('click', () => {
+        document.getElementById('swap-modal').style.display = 'none';
     });
+    log('Welcome. Connect your wallet to start.');
+    render(); fetchRanking(); setInterval(fetchRanking, 30000);
 </script>
-
 </body>
 </html>
