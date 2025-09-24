@@ -14,7 +14,7 @@
     html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; }
     a { color: var(--accent); text-decoration: none; }
     .wrap { max-width: 800px; margin: 0 auto; padding: 28px 16px 60px; }
-    .title { font-size: 28px; font-weight: 800; letter-spacing: .2px; display: flex; align-items: center; gap: 10px; }
+    .title { font-size: 28px; font-weight: 800; letter-spacing: .2px; display: flex; align-items-center; gap: 10px; }
     .sub { color: var(--muted); margin-top: 6px; }
     .grid { display: grid; grid-template-columns: 1fr; gap: 18px; margin-top: 24px; }
     .card { background: linear-gradient(180deg, var(--panel), var(--panel2)); border: 1px solid var(--border); border-radius: 18px; padding: 18px; }
@@ -314,35 +314,43 @@
     let isJupiterPluginInitialized = false;
 
     const launchJupiter = () => {
-      if (isJupiterPluginInitialized) {
+        // Show the modal immediately
         $('#swap-modal').style.display = 'flex';
-        return;
-      }
-      
-      log('🚀 Loading Jupiter Swap Plugin...');
-      $('#swap-modal').style.display = 'flex';
+        
+        if (isJupiterPluginInitialized) {
+            return; // Don't re-initialize
+        }
+        
+        log('🚀 Loading Jupiter Swap Plugin...');
 
-      // CORRECTED: Use window.JupiterStation instead of window.Jupiter
-      window.JupiterStation.init({
-        endpoint: "https://mainnet.rpc.solaxy.io",
-        mount: document.getElementById("integrated-terminal"),
-        
-        // Configuration for the new Plugin
-        initialInputMint: "So11111111111111111111111111111111111111112", // SOL
-        initialOutputMint: "1THEbQ2K1ELPQcsgfWhbSyApMeiXhofRexvmTVFvDfX", // Your AFK token mint
-        
-        onSuccess: ({ txid }) => {
-            log(`✅ Swap successful! TX: ${txid.slice(0, 10)}...`);
-            setTimeout(purchaseDetectionLoop, 3000); 
-        },
-      });
-      isJupiterPluginInitialized = true;
+        // Wait until window.Jupiter is available
+        const interval = setInterval(() => {
+            if (window.Jupiter) {
+                clearInterval(interval); // Stop checking
+                
+                // --- CORRECTED: The new plugin still uses window.Jupiter ---
+                window.Jupiter.init({
+                    endpoint: "https://mainnet.rpc.solaxy.io",
+                    mount: document.getElementById("integrated-terminal"),
+                    
+                    initialInputMint: "So11111111111111111111111111111111111111112", // SOL
+                    initialOutputMint: "1THEbQ2K1ELPQcsgfWhbSyApMeiXhofRexvmTVFvDfX", // Your AFK token mint
+                    
+                    onSuccess: ({ txid }) => {
+                        log(`✅ Swap successful! TX: ${txid.slice(0, 10)}...`);
+                        setTimeout(purchaseDetectionLoop, 3000); 
+                    },
+                });
+                isJupiterPluginInitialized = true;
+                log('✅ Jupiter Plugin loaded.');
+            }
+        }, 100); // Check every 100ms
     };
 
     // Add event listeners for the new modal
     $('#swapButton').addEventListener('click', launchJupiter);
     $('#close-swap').addEventListener('click', () => {
-      $('#swap-modal').style.display = 'none';
+        $('#swap-modal').style.display = 'none';
     });
 </script>
 
