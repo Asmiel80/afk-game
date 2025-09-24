@@ -327,10 +327,10 @@
                 clearInterval(interval);
                 
                 window.Jupiter.init({
-                    endpoint: "https://mainnet.rpc.solaxy.io",
+                    // FINAL CORRECTION: Switched to the standard public Solana RPC
+                    endpoint: "https://api.mainnet-beta.solana.com",
                     mount: document.getElementById("integrated-terminal"),
                     
-                    // FINAL CORRECTION: Nesting parameters inside `formProps`
                     formProps: {
                         initialInputMint: "So11111111111111111111111111111111111111112", // SOL
                         initialOutputMint: "1THEbQ2K1ELPQcsgfWhbSyApMeiXhofRexvmTVFvDfX", // Your AFK token mint
