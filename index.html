@@ -6,7 +6,7 @@
   <title>AFK Mode — Accumulate and Win 🚀</title>
   <style>
     :root {
-      --bg: #0b1115; --panel: #0e1a1a; --panel2: #111a22; --text: #dfe7ef;
+      --bg: #0b1115; --panel: #0e141a; --panel2: #111a22; --text: #dfe7ef;
       --muted: #9db0c0; --accent: #2bd081; --accent2: #11a372; --danger: #ff4d4d;
       --border: #15202b; --gold: #ffc700;
     }
@@ -71,7 +71,7 @@
 
       <div id="swap-modal" class="modal-backdrop">
         <div class="modal">
-          <iframe id="jup-frame" class="jup-frame" title="Jupiter Terminal"></iframe>
+          <iframe id="jup-frame" class="jup-frame" allow="clipboard-read; clipboard-write" title="Jupiter Terminal"></iframe>
           <button id="close-swap" class="modal-close">&times;</button>
         </div>
       </div>
@@ -136,8 +136,11 @@
     const RANKING_REFRESH_MS = 30000;
 
     // --- JUPITER CONFIG ---
-    const JUP_INPUT_MINT = "So11111111111111111111111111111111111111112"; // SOL
-    const JUP_OUTPUT_MINT = "1THEbQ2K1ELPQcsgfWhbSyApMeiXhofRexvmTVFvDfX"; // AFK
+    const JUP_CONFIG = {
+      inputMint: "So11111111111111111111111111111111111111112",   // SOL
+      outputMint: "1THEbQ2K1ELPQcsgfWhbSyApMeiXhofRexvmTVFvDfX", // AFK
+      passThroughWallet: "true" // This tells Jupiter to use the parent window's wallet
+    };
 
     // --- Tier and Reward Definitions ---
     const TIERS = {
@@ -314,22 +317,28 @@
     }
 
     // --- JUPITER LAUNCHER (IFRAME METHOD) ---
-    function launchJupiter(){
-      const url = `https://jup.ag/swap/${JUP_INPUT_MINT}-${JUP_OUTPUT_MINT}?inAmount=1`;
-      document.getElementById("jup-frame").src = url;
-      document.getElementById("swap-modal").style.display = "flex";
-      log("🚀 Jupiter Terminal opened.");
-      setTimeout(()=>purchaseDetectionLoop(), 4000); // Check for purchase after a few seconds
+    function objectToQueryString(obj) {
+        return Object.entries(obj).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+    }
+
+    function launchJupiter() {
+        const queryString = objectToQueryString(JUP_CONFIG);
+        const url = `https://jup.ag/swap?${queryString}`;
+      
+        $('#jup-frame').src = url;
+        $('#swap-modal').style.display = "flex";
+        log("🚀 Jupiter Terminal opened.");
+        setTimeout(() => purchaseDetectionLoop(), 4000);
     }
 
     // --- INITIALIZATION ---
     $('#connect').addEventListener('click', connectWallet);
     $('#playButton').addEventListener('click', startAFK);
     $('#resetWeeklyBtn').addEventListener('click', resetAllScores);
-    document.getElementById('swapButton').addEventListener('click', launchJupiter);
-    document.getElementById('close-swap').addEventListener('click', () => {
-        document.getElementById('swap-modal').style.display = 'none';
-        document.getElementById("jup-frame").src = "about:blank"; // Clear iframe to stop connections
+    $('#swapButton').addEventListener('click', launchJupiter);
+    $('#close-swap').addEventListener('click', () => {
+        $('#swap-modal').style.display = 'none';
+        $('#jup-frame').src = "about:blank"; // Clear iframe to stop connections
     });
     log('Welcome. Connect your wallet to start.');
     render(); fetchRanking(); setInterval(fetchRanking, 30000);
