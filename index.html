@@ -146,7 +146,7 @@
     // --- Application State ---
     const state = { pubkey: null, running: false, purchaseDetector: null, unclaimedSeconds: 0, highestTier: null, totalPoints: 0, afkStart: null, sessionDuration: 0, sessionTier: null, sessionPoints: 0 };
     const $ = sel => document.querySelector(sel);
-    const log = (msg) => { const box = $('#log'); const t = new Date().toLocaleTimeString(); box.innerHTML = `[${t}] ${msg}<br>` + box.innerHTML; }
+    const log = (msg) => { const box = $('#log'); const t = new Date().toLocaleTimeString(); box.innerHTML = `[${t}] ${msg}<br>` + box.innerHTML; };
     const fmt = (s) => { const m = Math.floor(s / 60), ss = String(Math.floor(s % 60)).padStart(2, '0'); return `${m}:${ss}` };
 
     function render() {
@@ -178,14 +178,17 @@
         const purchase = await checkRecentPurchase(state.pubkey);
         if (purchase && !alreadyRewarded(purchase.signature)) {
             markRewarded(purchase.signature);
+            
             let tierId = null;
             if (purchase.amount >= TIERS.legendary.minAmount) tierId = 'legendary';
             else if (purchase.amount >= TIERS.rare.minAmount) tierId = 'rare';
             else if (purchase.amount >= TIERS.basic.minAmount) tierId = 'basic';
+
             if(tierId) {
                 const tierInfo = TIERS[tierId];
                 state.unclaimedSeconds += tierInfo.seconds;
                 log(`✅ Purchase detected! You've earned ${tierInfo.seconds}s of game time (Tier: ${tierInfo.name}).`);
+                
                 if (!state.highestTier || tierPrecedence.indexOf(tierId) > tierPrecedence.indexOf(state.highestTier)) {
                     state.highestTier = tierId;
                     log(`✨ Your next game will have ${tierInfo.name} level rewards.`);
@@ -268,7 +271,7 @@
         try {
             const resp = await provider.connect(); const key = resp.publicKey.toString(); state.pubkey = key;
             $('#pubkey').textContent = `Wallet: ${key.slice(0, 4)}…${key.slice(-4)}`; log('✅ Wallet connected.');
-            if (key === ADMIN_PUBKEY) { log('👋 Hello, Admin! Control panel activated.'); $('#admin-panel').style.display = 'block'; } 
+            if (key === ADMIN_PUBKEY) { log('👋 Hello, Admin! Control panel activated.'); $('#admin-panel').style.display = 'block'; }
             else { $('#admin-panel').style.display = 'none'; }
             await loadPointsFromServer(key); startPurchaseDetector(); purchaseDetectionLoop();
             $('#swapButton').disabled = false;
@@ -277,9 +280,9 @@
     async function loadPointsFromServer(pubkey) {
         try {
             const res = await fetch(`${BACKEND_URL}/points/${pubkey}`);
-            if (res.ok) { const data = await res.json(); state.totalPoints = data.points || 0; log(`Total score loaded: ${state.totalPoints}`); } 
+            if (res.ok) { const data = await res.json(); state.totalPoints = data.points || 0; log(`Total score loaded: ${state.totalPoints}`); }
             else { log('New wallet. Welcome!'); state.totalPoints = 0; }
-        } catch (err) { log('❌ Could not connect to the score server.'); state.totalPoints = 0; } 
+        } catch (err) { log('❌ Could not connect to the score server.'); state.totalPoints = 0; }
         finally { render(); }
     }
     async function savePointsToServer() {
@@ -296,7 +299,7 @@
       log('⚙️ Resetting all scores...');
       try {
         const res = await fetch(`${BACKEND_URL}/resetWeekly`, { method: 'POST' }); const data = await res.json();
-        if (res.ok && data.ok) { log('✅ All scores have been reset.'); await fetchRanking(); } 
+        if (res.ok && data.ok) { log('✅ All scores have been reset.'); await fetchRanking(); }
         else { throw new Error(data.error || 'Non-OK response from server'); }
       } catch (err) { log('❌ Error resetting scores.'); console.error('Reset error:', err); }
     }
@@ -327,7 +330,8 @@
                 clearInterval(interval);
                 
                 window.Jupiter.init({
-                    // PASTE YOUR DEDICATED RPC URL FROM HELIUS (or another provider) HERE
+                    // FINAL CORRECTION: Added passThroughWallet parameter
+                    passThroughWallet: window.solana,
                     endpoint: "https://mainnet.helius-rpc.com/?api-key=a8a142fc-9010-49d3-bc40-11c3d5ff66c4",
                     mount: document.getElementById("integrated-terminal"),
                     
@@ -338,7 +342,7 @@
                     
                     onSuccess: ({ txid }) => {
                         log(`✅ Swap successful! TX: ${txid.slice(0, 10)}...`);
-                        setTimeout(purchaseDetectionLoop, 3000); 
+                        setTimeout(purchaseDetectionLoop, 3000);
                     },
                 });
                 isJupiterPluginInitialized = true;
