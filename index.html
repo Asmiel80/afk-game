@@ -135,11 +135,12 @@
     const RANKING_URL = `${BACKEND_URL}/ranking`;
     const RANKING_REFRESH_MS = 30000;
 
-    // --- JUPITER CONFIG ---
+    // --- JUPITER CONFIG (TEST) ---
     const JUP_CONFIG = {
       inputMint: "So11111111111111111111111111111111111111112",   // SOL
-      outputMint: "1THEbQ2K1ELPQcsgfWhbSyApMeiXhofRexvmTVFvDfX", // AFK
-      passThroughWallet: "true" // This tells Jupiter to use the parent window's wallet
+      // Temporary change for testing: using USDC instead of AFK
+      outputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyB7u6T", // USDC Mint Address
+      passThroughWallet: "true"
     };
 
     // --- Tier and Reward Definitions ---
