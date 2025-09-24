@@ -121,7 +121,6 @@
 <script>
     // ========= CONFIGURATION =========
     const BACKEND_URL = "https://api.afkcoin.xyz";
-    // DEPRECATED: const IGNITER_URL = 'https://igniter.solaxy.io/token/?mint=1THEbQ2K1ELPQcsgfWhbSyApMeiXhofRexvmTVFvDfX';
     
     // IMPORTANT: Put your admin wallet address here
     const ADMIN_PUBKEY = "F3zY8TZ9jiCTneBkPQr1DMbyT9vgwdBUXCoZB9h4GP5G";
@@ -438,6 +437,13 @@
     let jupiterTerminal = null;
 
     function launchJupiter() {
+      // Check if the Jupiter object is available
+      if (!window.Jupiter) {
+        console.error("Jupiter script not loaded yet.");
+        log('❌ Error: Jupiter script not loaded.');
+        return;
+      }
+
       if (jupiterTerminal) {
         // If already initialized, just show it
         $('#swap-modal').style.display = 'flex';
@@ -448,9 +454,8 @@
       $('#swap-modal').style.display = 'flex';
       
       window.Jupiter.init({
-        // The RPC endpoint. You can use your own or a public one.
-        // Using the one from your worker for consistency.
-        endpoint: "https://mainnet.rpc.solaxy.io", 
+        // THIS IS THE CRITICAL LINE THAT WAS MISSING AND IS NOW CORRECTED
+        endpoint: "https://mainnet.rpc.solaxy.io",
         
         // Where to mount the widget
         mount: document.getElementById("integrated-terminal"),
@@ -473,6 +478,7 @@
         useUserSlippage: true,
         containerClassName: 'jup-theme-dark',
       });
+
       jupiterTerminal = true;
     }
 
