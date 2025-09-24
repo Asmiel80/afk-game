@@ -322,7 +322,8 @@
       log('🚀 Loading Jupiter Swap Plugin...');
       $('#swap-modal').style.display = 'flex';
 
-      window.Jupiter.init({
+      // CORRECTED: Use window.JupiterStation instead of window.Jupiter
+      window.JupiterStation.init({
         endpoint: "https://mainnet.rpc.solaxy.io",
         mount: document.getElementById("integrated-terminal"),
         
