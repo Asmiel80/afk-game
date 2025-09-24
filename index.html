@@ -69,7 +69,6 @@
         <div id="pubkey" class="muted" style="text-align:center; margin-top:12px; font-size:13px;">Wallet not connected</div>
       </div>
 
-      <!-- IFRAME-BASED JUPITER TERMINAL (robust & simple) -->
       <div id="swap-modal" class="modal-backdrop">
         <div class="modal">
           <iframe id="jup-frame" class="jup-frame" title="Jupiter Terminal"></iframe>
@@ -326,42 +325,10 @@
     }
     async function launchJupiter(){
       if (!window.solana || !window.solana.isPhantom){ log("❌ Phantom Wallet not detected."); return; }
-      window.solana.connect().catch(()=>{ log("❌ Connection rejected by user."); return; });
-      const qs = Object.entries(JUP_PARAMS).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
-
-      // 1) New Jupiter Plugin (preferred)
-      const pluginUrl = `https://jup.ag/plugin#${qs}`;          // rebranded endpoint
-      // 2) Legacy Terminal (fallback, hides banner)
-      const legacyUrl = `https://terminal.jup.ag/main-v2.html#hideAnnouncement=true&${qs}`;
-
-      const frame = document.getElementById("jup-frame");
-      frame.src = pluginUrl;
-      document.getElementById("swap-modal").style.display = "flex";
-      log("🚀 Jupiter Plugin opened.");
-
-      // After 5s, if the user still sees the deprecation popup (rare) or plugin fails to load, switch to legacy silently.
-      setTimeout(()=>{
-        try {
-          // We can't peek inside cross-origin, so offer a quick switch button:
-          const hasSwitcher = document.getElementById("legacy-switch");
-          if (!hasSwitcher){
-            const btn = document.createElement("button");
-            btn.id = "legacy-switch";
-            btn.className = "btn";
-            btn.style.margin = "10px 0 0";
-            btn.textContent = "Open Legacy Jupiter (no banner)";
-            btn.onclick = ()=>{ frame.src = legacyUrl; log("↩️ Switched to Legacy Jupiter."); };
-            frame.parentElement.appendChild(btn);
-          }
-        } catch(e){}
-      }, 5000);
-
-      // small delayed re-check:
-      setTimeout(()=>purchaseDetectionLoop(), 4000);
-    }
       try{ await window.solana.connect(); }catch(e){ log("❌ Connection rejected by user."); return; }
       const qs = objectToQuery(JUP_PARAMS);
-      const url = `https://terminal.jup.ag/main-v2.html#${qs}`;
+      // *** FINAL CORRECTION IS HERE ***
+      const url = `https://jup.ag/terminal?${qs}`;
       document.getElementById("jup-frame").src = url;
       document.getElementById("swap-modal").style.display = "flex";
       log("🚀 Jupiter Terminal opened.");
